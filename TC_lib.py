@@ -4,7 +4,7 @@ import pandas as pd
 from tc_python import *
 import os
 import copy 
-
+import composition_lib
 
 # Generate Printability Values from Scheil Calculations
 def printability(composition, scheil_calculation, system, disp=False):
@@ -648,5 +648,178 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
     return results 
 
 # TCPython Initializer and Caller for Matrix
-def matrix_TC_caller(calcs, compositions, temperature):
-    pass
+def matrix_TC_caller(calcs, compositions_matrix, temperature):
+    """
+    Parameters
+    ----------
+    calcs : List
+        Ex: ["printability", "stable_del_ferrite"]
+        
+    compositions_matrix : 2D array of Dicts
+        Ex: c_1217 = {
+                       "C": 0.03/100,
+                       "Cr": 12/100,
+                       "Ni": 17/100,
+                       "Mo": 1.3/100,
+                       "Ti": 3.0/100,
+                       "V": 0.3/100,
+                       "Al": 0.2/100
+                       #"B": 0.01/100
+                       #"O": 0.015/100
+                       }  # in wt-fraction #
+        
+    temperature : Dict
+        Ex: temps = {
+            "solution_temp" : 1000 + 273.15,
+            "aging_temp" = 973.15
+        }
+
+    Returns
+    -------
+    result : Dict 
+    [May contain, depending on what you wanted]
+        "printability":
+        FR : Freezing Range [Float]
+        CSC : Cracking Susceptibility Coefficient [Float] 
+        BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
+        laves_frac : Mole fraction of laves present at-print [Float]
+
+        "stable_del_ferrite":
+        del_ferrite : Amount of stable del_ferrite post solution treatment
+
+        "ASP":
+        asp : Austenite Stability Parameter
+
+        "phase_frac_and_APBE":
+        gammaPrime_mole_fraction : How much gamma Prime is in our post-aged matrix
+        APBEamount : (??)
+
+        "strength_and_DF":
+        dG_diff : dG difference between ____ and ____ (??)
+        strength : Strength of alloy
+   
+    """
+    elements = list(compositions_matrix[0][0].keys())
+    results = {}
+    with TCPython as tcpython: 
+        if "printability" in calcs: 
+            # system definer info
+            database = "TCFE10"
+            dependent_element = "Fe"
+            system = (tcpython.
+                    set_cache_folder(os.path.basename(__file__) + "_cache").
+                    select_database_and_elements(database, [dependent_element] + elements).
+                    get_system_for_scheil_calculations())
+        
+            scheil_calculation = (system.with_scheil_calculation().
+                                set_composition_unit(CompositionUnit.MASS_FRACTION))
+
+            calc_matr = [[printability(compositions_matrix[x][y], scheil_calculation, system) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+        
+            fr_matr = [[calc_matr[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            csc_matr = [[calc_matr[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            bcc_matr = [[calc_matr[i][j][2] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            laves_matr = [[calc_matr[i][j][3] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+
+            results.update( {'FR' : fr_matr, "CSC" : csc_matr, "BCC_frac" : bcc_matr, "laves_frac" : laves_matr} )
+        
+        if "stable_del_ferrite" in calcs: 
+            # system definer info
+            database = "TCFE10"
+            dependent_element = "Fe"
+            system = (tcpython
+                    .set_cache_folder(os.path.basename(__file__) + "_cache")
+                    .select_database_and_elements(database, [dependent_element] + elements)
+                    .get_system()
+                    .with_single_equilibrium_calculation())
+                
+            del_ferrite_matr = [[stable_del_ferrite(compositions_matrix[x][y], temperature["solution_temp"], system) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+            results.update( {'del_ferrite' : del_ferrite_matr} )
+
+        if "ASP" in calcs:
+            singlepoint = (tcpython.
+                set_cache_folder(os.path.basename(__file__) + "_cache").
+                select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
+                without_default_phases().
+                select_phase("FCC_A1").
+                select_phase("gamma_prime").
+                get_system().
+                with_single_equilibrium_calculation().
+                set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                set_gibbs_energy_addition_for('gamma_prime', -1456)
+                )
+            calculation = (tcpython.
+                set_cache_folder(os.path.basename(__file__) + "_cache").
+                select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
+                without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
+                get_system().
+                with_property_diagram_calculation().
+                with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
+                            set_min(temperature["start_temp"]).
+                            set_max(temperature["end_temp"]).
+                            with_axis_type(Linear().set_max_step_size(1))).
+                disable_global_minimization().
+                enable_step_separate_phases()
+                )
+            asp_matr = [[ASP(compositions_matrix[x][y], singlepoint, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+            results.update( {"asp" : asp_matr} )
+
+        if "phase_frac_and_APBE" in calcs:
+            database = "nidata7.tdb"
+            dependent_element = "fe"
+            calculation = (tcpython. 
+                        set_cache_folder(os.path.basename(__file__) + "_cache").
+                        select_user_database_and_elements(database, [dependent_element] + elements).
+                        without_default_phases().
+                        select_phase("FCC_A1").
+                        select_phase("gamma_prime").
+                        get_system().
+                        with_single_equilibrium_calculation().
+                        set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                        set_gibbs_energy_addition_for('gamma_prime', -1456)
+                        )
+
+            res = [[phase_frac_and_APBE(compositions_matrix, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+
+            gammaPrime_mole_fraction =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            APBEamount =                [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+
+            results.update( {"gammaPrime_mole_fraction" : gammaPrime_mole_fraction, "APBEamount" : APBEamount} )
+                        
+        if "strength_and_DF" in calcs:
+            # create and configure a single equilibrium calculation
+            tcpython.set_ges_version(5)
+            dG_calculation = (tcpython
+                        .set_cache_folder(os.path.basename(__file__) + "_cache")
+                        .select_user_database_and_elements(database, [dependent_element] + elements)
+                        .without_default_phases()
+                        .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
+                        .get_system()
+                        .with_single_equilibrium_calculation()
+                        .set_condition(ThermodynamicQuantity.temperature(), temperature)
+                        .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
+                        .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        )
+            strength_calculation = (tcpython.
+                        set_cache_folder(os.path.basename(__file__) + "_cache").
+                        select_user_database_and_elements(database, [dependent_element] + elements).
+                        without_default_phases().
+                        select_phase("FCC_A1").
+                        select_phase("GAMMA_PRIME").
+                        get_system().
+                        with_single_equilibrium_calculation().
+                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]).
+                        set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        ) 
+
+            res = [[strength_and_DF(compositions_matrix, temperature["aging_temp"], dG_calculation, strength_calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]                   
+
+            dG_diff =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            strength = [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+
+            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+    
+    if len(results) == 0:
+        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"ASP\", \"phase_frac_and_APBE\", \"strength_and_DF\"")
+    
+    return results 
