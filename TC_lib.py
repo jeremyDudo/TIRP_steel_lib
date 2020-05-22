@@ -489,10 +489,58 @@ def strength_and_DF(composition, temperature, dG_calculation, strength_calculati
 
 # TCPython Initializer and Caller for Single Point Calc
 def single_TC_caller(calcs, composition, temperature, disp=False):
+    """
+    Parameters
+    ----------
+    calcs : List
+        Ex: ["printability", "stable_del_ferrite"]
+        
+    composition : Dict
+        Ex: c_1217 = {
+                       "C": 0.03/100,
+                       "Cr": 12/100,
+                       "Ni": 17/100,
+                       "Mo": 1.3/100,
+                       "Ti": 3.0/100,
+                       "V": 0.3/100,
+                       "Al": 0.2/100
+                       #"B": 0.01/100
+                       #"O": 0.015/100
+                       }  # in wt-fraction #
+        
+    temperature : Dict
+        Ex: temps = {
+            "solution_temp" : 1000 + 273.15,
+            "aging_temp" = 973.15
+        }
 
+    Returns
+    -------
+    result : Dict 
+    [May contain, depending on what you wanted]
+        "printability":
+        FR : Freezing Range [Float]
+        CSC : Cracking Susceptibility Coefficient [Float] 
+        BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
+        laves_frac : Mole fraction of laves present at-print [Float]
+
+        "stable_del_ferrite":
+        del_ferrite : Amount of stable del_ferrite post solution treatment
+
+        "ASP":
+        asp : Austenite Stability Parameter
+
+        "phase_frac_and_APBE":
+        gammaPrime_mole_fraction : How much gamma Prime is in our post-aged matrix
+        APBEamount : (??)
+
+        "strength_and_DF":
+        dG_diff : dG difference between ____ and ____ (??)
+        strength : Strength of alloy
+   
+    """
     elements = list(composition.keys())
     results = {}
-
     with TCPython as tcpython: 
         if "printability" in calcs: 
             # system definer info
@@ -563,8 +611,8 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         set_condition(ThermodynamicQuantity.temperature(), 973.15).
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
-            [dG_diff, strength] = phase_frac_and_APBE(composition, calculation)
-            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+            [gammaPrime_mole_fraction, APBEamount] = phase_frac_and_APBE(composition, calculation)
+            results.update( {"gammaPrime_mole_fraction" : gammaPrime_mole_fraction, "APBEamount" : APBEamount} )
                         
         if "strength_and_DF" in calcs:
             # create and configure a single equilibrium calculation
@@ -588,13 +636,17 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         select_phase("GAMMA_PRIME").
                         get_system().
                         with_single_equilibrium_calculation().
-                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temperature"]).
+                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]).
                         set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         ) 
-            [dG_diff, strength] = strength_and_DF(composition, temperature["aging_temperature"], dG_calculation, strength_calculation)                   
+            [dG_diff, strength] = strength_and_DF(composition, temperature["aging_temp"], dG_calculation, strength_calculation)                   
             results.update( {"dG_diff" : dG_diff, "strength" : strength} )
-
+    
+    if len(results) == 0:
+        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"ASP\", \"phase_frac_and_APBE\", \"strength_and_DF\"")
+    
     return results 
+
 # TCPython Initializer and Caller for Matrix
 def matrix_TC_caller(calcs, compositions, temperature):
     pass
