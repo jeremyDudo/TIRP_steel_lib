@@ -493,106 +493,106 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
     elements = list(composition.keys())
     results = {}
 
-    with TCPython as tcpython 
-    if "printability" in calcs: 
-        # system definer info
-        database = "TCFE10"
-        dependent_element = "Fe"
-        system = (tcpython.
-                set_cache_folder(os.path.basename(__file__) + "_cache").
-                select_database_and_elements(database, [dependent_element] + elements).
-                get_system_for_scheil_calculations())
-    
-        scheil_calculation = (system.with_scheil_calculation().
-                            set_composition_unit(CompositionUnit.MASS_FRACTION))
-        [FR, CSC, BCC_frac, laves_frac] = printability(composition, scheil_calculation, system, disp=disp)
-        results.update( {'FR' : FR, "CSC" : CSC, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
-    
-    if "stable_del_ferrite" in calcs: 
-        # system definer info
-        database = "TCFE10"
-        dependent_element = "Fe"
-        system = (tcpython
-                .set_cache_folder(os.path.basename(__file__) + "_cache")
-                .select_database_and_elements(database, [dependent_element] + elements)
-                .get_system()
-                .with_single_equilibrium_calculation())
-            
-        del_ferrite = stable_del_ferrite(composition, temperature["solution_temp"], system)
-        results.update( {'del_ferrite' : del_ferrite} )
-
-    if "ASP" in calcs:
-        singlepoint = (tcpython.
-            set_cache_folder(os.path.basename(__file__) + "_cache").
-            select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
-            without_default_phases().
-            select_phase("FCC_A1").
-            select_phase("gamma_prime").
-            get_system().
-            with_single_equilibrium_calculation().
-            set_condition(ThermodynamicQuantity.temperature(), 973.15).
-            set_gibbs_energy_addition_for('gamma_prime', -1456)
-            )
-        calculation = (tcpython.
-            set_cache_folder(os.path.basename(__file__) + "_cache").
-            select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
-            without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
-            get_system().
-            with_property_diagram_calculation().
-            with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
-                        set_min(temperature["start_temp"]).
-                        set_max(temperature["end_temp"]).
-                        with_axis_type(Linear().set_max_step_size(1))).
-            disable_global_minimization().
-            enable_step_separate_phases()
-            )
-        asp = ASP(composition, singlepoint, calculation)
-        results.update( {"asp" : asp} )
-
-    if "phase_frac_and_APBE" in calcs:
-        database = "nidata7.tdb"
-        dependent_element = "fe"
-        calculation = (tcpython. 
+    with TCPython as tcpython: 
+        if "printability" in calcs: 
+            # system definer info
+            database = "TCFE10"
+            dependent_element = "Fe"
+            system = (tcpython.
                     set_cache_folder(os.path.basename(__file__) + "_cache").
-                    select_user_database_and_elements(database, [dependent_element] + elements).
-                    without_default_phases().
-                    select_phase("FCC_A1").
-                    select_phase("gamma_prime").
-                    get_system().
-                    with_single_equilibrium_calculation().
-                    set_condition(ThermodynamicQuantity.temperature(), 973.15).
-                    set_gibbs_energy_addition_for('gamma_prime', -1456)
-                    )
-        [dG_diff, strength] = phase_frac_and_APBE(composition, calculation)
-        results.update( {"dG_diff" : dG_diff, "strength" : strength} )
-                    
-    if "strength_and_DF" in calcs:
-        # create and configure a single equilibrium calculation
-        tcpython.set_ges_version(5)
-        dG_calculation = (tcpython
+                    select_database_and_elements(database, [dependent_element] + elements).
+                    get_system_for_scheil_calculations())
+        
+            scheil_calculation = (system.with_scheil_calculation().
+                                set_composition_unit(CompositionUnit.MASS_FRACTION))
+            [FR, CSC, BCC_frac, laves_frac] = printability(composition, scheil_calculation, system, disp=disp)
+            results.update( {'FR' : FR, "CSC" : CSC, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
+        
+        if "stable_del_ferrite" in calcs: 
+            # system definer info
+            database = "TCFE10"
+            dependent_element = "Fe"
+            system = (tcpython
                     .set_cache_folder(os.path.basename(__file__) + "_cache")
-                    .select_user_database_and_elements(database, [dependent_element] + elements)
-                    .without_default_phases()
-                    .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
+                    .select_database_and_elements(database, [dependent_element] + elements)
                     .get_system()
-                    .with_single_equilibrium_calculation()
-                    .set_condition(ThermodynamicQuantity.temperature(), temperature)
-                    .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
-                    .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
-                    )
-        strength_calculation = (tcpython.
-                    set_cache_folder(os.path.basename(__file__) + "_cache").
-                    select_user_database_and_elements(database, [dependent_element] + elements).
-                    without_default_phases().
-                    select_phase("FCC_A1").
-                    select_phase("GAMMA_PRIME").
-                    get_system().
-                    with_single_equilibrium_calculation().
-                    set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temperature"]).
-                    set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
-                    ) 
-        [dG_diff, strength] = strength_and_DF(composition, temperature["aging_temperature"], dG_calculation, strength_calculation)                   
-        results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+                    .with_single_equilibrium_calculation())
+                
+            del_ferrite = stable_del_ferrite(composition, temperature["solution_temp"], system)
+            results.update( {'del_ferrite' : del_ferrite} )
+
+        if "ASP" in calcs:
+            singlepoint = (tcpython.
+                set_cache_folder(os.path.basename(__file__) + "_cache").
+                select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
+                without_default_phases().
+                select_phase("FCC_A1").
+                select_phase("gamma_prime").
+                get_system().
+                with_single_equilibrium_calculation().
+                set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                set_gibbs_energy_addition_for('gamma_prime', -1456)
+                )
+            calculation = (tcpython.
+                set_cache_folder(os.path.basename(__file__) + "_cache").
+                select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
+                without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
+                get_system().
+                with_property_diagram_calculation().
+                with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
+                            set_min(temperature["start_temp"]).
+                            set_max(temperature["end_temp"]).
+                            with_axis_type(Linear().set_max_step_size(1))).
+                disable_global_minimization().
+                enable_step_separate_phases()
+                )
+            asp = ASP(composition, singlepoint, calculation)
+            results.update( {"asp" : asp} )
+
+        if "phase_frac_and_APBE" in calcs:
+            database = "nidata7.tdb"
+            dependent_element = "fe"
+            calculation = (tcpython. 
+                        set_cache_folder(os.path.basename(__file__) + "_cache").
+                        select_user_database_and_elements(database, [dependent_element] + elements).
+                        without_default_phases().
+                        select_phase("FCC_A1").
+                        select_phase("gamma_prime").
+                        get_system().
+                        with_single_equilibrium_calculation().
+                        set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                        set_gibbs_energy_addition_for('gamma_prime', -1456)
+                        )
+            [dG_diff, strength] = phase_frac_and_APBE(composition, calculation)
+            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+                        
+        if "strength_and_DF" in calcs:
+            # create and configure a single equilibrium calculation
+            tcpython.set_ges_version(5)
+            dG_calculation = (tcpython
+                        .set_cache_folder(os.path.basename(__file__) + "_cache")
+                        .select_user_database_and_elements(database, [dependent_element] + elements)
+                        .without_default_phases()
+                        .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
+                        .get_system()
+                        .with_single_equilibrium_calculation()
+                        .set_condition(ThermodynamicQuantity.temperature(), temperature)
+                        .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
+                        .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        )
+            strength_calculation = (tcpython.
+                        set_cache_folder(os.path.basename(__file__) + "_cache").
+                        select_user_database_and_elements(database, [dependent_element] + elements).
+                        without_default_phases().
+                        select_phase("FCC_A1").
+                        select_phase("GAMMA_PRIME").
+                        get_system().
+                        with_single_equilibrium_calculation().
+                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temperature"]).
+                        set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        ) 
+            [dG_diff, strength] = strength_and_DF(composition, temperature["aging_temperature"], dG_calculation, strength_calculation)                   
+            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
 
     return results 
 # TCPython Initializer and Caller for Matrix
