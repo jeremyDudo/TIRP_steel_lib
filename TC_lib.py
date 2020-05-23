@@ -4,7 +4,6 @@ import pandas as pd
 from tc_python import *
 import os
 import copy 
-import composition_lib
 
 # Generate Printability Values from Scheil Calculations
 def printability(composition, scheil_calculation, system, disp=False):
