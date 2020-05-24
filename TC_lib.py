@@ -21,7 +21,7 @@ def printability(composition, scheil_calculation, system, disp=False):
                        "Al": 0.2/100
                        #"B": 0.01/100
                        #"O": 0.015/100
-                       }  # in wt-fraction #
+                       }  # in wt-fraction 
         
     scheil_calculation : TCPython session for scheil_calculations (if taken as an input, we can evaluate over a range of values with only one instancing call)
         TCPython().set_cache_folder(os.path.basename(__file__) + "_cache")
@@ -35,9 +35,9 @@ def printability(composition, scheil_calculation, system, disp=False):
 
     Returns
     -------
-    [FR, CSC, BCC_frac, laves_frac]
-        FR : Freezing Range [Float]
-        CSC : Cracking Susceptibility Coefficient [Float] 
+    [fr, csc, BCC_frac, laves_frac]
+        fr : freezing Range [Float]
+        csc : Cracking Susceptibility Coefficient [Float] 
         BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
         laves_frac : Mole fraction of laves present at-print [Float]
     """
@@ -157,10 +157,10 @@ def printability(composition, scheil_calculation, system, disp=False):
     NH = NS_NH[1]
     T = NS_T[1]
     
-    FR = round(max(T) - min(T), 2)
+    fr = round(max(T) - min(T), 2)
 
     # Calculate Cracking Susceptibility Coeffieicent 
-    def CSC(NS, NH):
+    def csc(NS, NH):
         """
         Parameters
         ----------
@@ -178,8 +178,8 @@ def printability(composition, scheil_calculation, system, disp=False):
 
         Returns
         -------
-        CSC : [Float]
-            Cracking Susceptibility Coefficient (CSC) as defined by QuesTek.
+        csc : [Float]
+            Cracking Susceptibility Coefficient (csc) as defined by QuesTek.
         """
         
         NS = np.asarray(NS)
@@ -200,17 +200,17 @@ def printability(composition, scheil_calculation, system, disp=False):
         t_v = t3 - t2
         t_r = t2 - t1
 
-        CSC = round((t_v / t_r), 5)
+        csc = round((t_v / t_r), 5)
 
-        return CSC
+        return csc
 
-    CSC = CSC(NS, NH)
+    csc = csc(NS, NH)
     
     if disp:
-        print("Freezing Range = %s" % FR)
-        print("Cracking susceptibility coefficient (CSC) = %s" % CSC)
+        print("freezing Range = %s" % fr)
+        print("Cracking susceptibility coefficient (csc) = %s" % csc)
     
-    return [FR, CSC, BCC_frac, laves_frac]
+    return [fr, csc, BCC_frac, laves_frac]
 
 # Calculate how much stable del-ferrite present post solution treatment
 def stable_del_ferrite(composition, solution_temp, calculation):
@@ -263,7 +263,7 @@ def stable_del_ferrite(composition, solution_temp, calculation):
     return del_ferrite
 
 # Calculate the Austenite Stability Parameter
-def ASP(composition, singlepoint, calculation):
+def asp(composition, singlepoint, calculation):
 
     matrixComposition = composition 
     # matrixComposition = copy.deepcopy(composition)
@@ -271,7 +271,7 @@ def ASP(composition, singlepoint, calculation):
 
     YS_RT = 1035
 
-    # Frictional Work
+    # frictional Work
     def w_fSol(comp, t, warmWork):
         # Constants
         # Athermal work term coeffecients [J/mol]
@@ -311,7 +311,7 @@ def ASP(composition, singlepoint, calculation):
 
         ####################
 
-        # Calculate Frictional work term for a given composition
+        # Calculate frictional work term for a given composition
 
         # w_Mu = athermal work term
         w_Mu_i = np.sqrt(((k_ath['c'] ** 2) * comp['c']) +
@@ -352,7 +352,7 @@ def ASP(composition, singlepoint, calculation):
         # w_Rho = forest hardening contribution
         w_Rho = A * epsilon ** (1 / 2)
 
-        # Frictional work = w_FSol
+        # frictional work = w_FSol
         w_fSol = w_Mu + w_th + w_Rho
 
         return float(w_fSol)   
@@ -374,7 +374,7 @@ def ASP(composition, singlepoint, calculation):
     # phases = point_calculation.get_stable_phases() 
 
     # matrix_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.mole_fraction_of_a_phase("FCC_A1#1"))
-    # gammaPrime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.mole_fraction_of_a_phase("GAMMA_PRIME"))
+    # gamma_prime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.mole_fraction_of_a_phase("GAMMA_PRIME"))
 
     for key, _ in composition.items():
         matrixComposition[key] = round(point_calculation.get_value_of(ThermodynamicQuantity.composition_of_phase_as_weight_fraction("FCC_A1#1", key)))
@@ -389,30 +389,30 @@ def ASP(composition, singlepoint, calculation):
 
     d = {"GCHEM": dgCH_T[0], "T[K]": dgCH_T[1]}
 
-    GData = pd.DataFrame(data=d, dtype=float)
+    GData = pd.Dataframe(data=d, dtype=float)
     GData.sort_values(by=["T[K]"])
     GData.reset_index(drop=True)
     # make dataframe
     for index, __ in GData.iterrows():
         GData.loc[index, 'T[C]'] = float(GData.loc[index, 'T[K]'] - 273.15)
         GData.loc[index, 'w_FSol'] = w_fSol(matrixComposition, GData.loc[index, 'T[K]'], 0.4)
-        GData.loc[index, 'ASP'] = GData.loc[index, 'GCHEM']+GData.loc[index, 'w_FSol']
+        GData.loc[index, 'asp'] = GData.loc[index, 'GCHEM']+GData.loc[index, 'w_FSol']
         GData.loc[index, 'YS'] = -1.425*(GData.loc[index, 'T[C]']-25) + YS_RT
         GData.loc[index, 'GsigUT'] = dGsigUT(GData.loc[index, 'YS'], 0.04)
         GData.loc[index, 'GsigCT'] = dGsigCT(GData.loc[index, 'YS'], 0.04)
         GData.loc[index, '-Gn-GsigUT'] = -1010-GData.loc[index, 'GsigUT']
         GData.loc[index, '-Gn-GsigCT'] = -1010-GData.loc[index, 'GsigCT']
-        GData.loc[index, 'GNetUT'] = GData.loc[index, 'ASP'] - GData.loc[index, '-Gn-GsigUT']
-        GData.loc[index, 'GNetCT'] = GData.loc[index, 'ASP'] - GData.loc[index, '-Gn-GsigCT']
+        GData.loc[index, 'GNetUT'] = GData.loc[index, 'asp'] - GData.loc[index, '-Gn-GsigUT']
+        GData.loc[index, 'GNetCT'] = GData.loc[index, 'asp'] - GData.loc[index, '-Gn-GsigCT']
     
     # ASK CLAY WHAT THIS IS
     index = abs(GData['T[C]'] -25.0).idxmin() #row number that gives
-    asp_RT = GData.loc[index, 'ASP'] # row, col position in dataframe
+    asp_RT = GData.loc[index, 'asp'] # row, col position in dataframe
 
     return asp_RT
 
-# Calculate Phase Frac + APBE
-def phase_frac_and_APBE(composition, calculation):
+# Calculate Phase frac + APBE
+def phase_frac_and_apbe(composition, calculation):
 
     # RT = 8.314*aging_temp 
     # matrixComposition = copy.deepcopy(composition)
@@ -420,8 +420,8 @@ def phase_frac_and_APBE(composition, calculation):
 
     # elements = list(composition.keys())
 
-    def APBE(siteFrac):
-        gamma_0 = (0.1135*siteFrac)+0.1834
+    def APBE(sitefrac):
+        gamma_0 = (0.1135*sitefrac)+0.1834
         return gamma_0
     
     for element in composition:
@@ -431,16 +431,16 @@ def phase_frac_and_APBE(composition, calculation):
     # matrix_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.
     #                                                         mole_fraction_of_a_phase("FCC_A1#1"))
 
-    gammaPrime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.
+    gamma_prime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.
                                                                 mole_fraction_of_a_phase("gamma-prime"))
 
     gammaprime_ti = point_calculation.get_value_of("Y(GAMMA_PRIME,TI#2)")
-    APBEamount=APBE(gammaprime_ti)
+    apbe=APBE(gammaprime_ti)
 
-    return [gammaPrime_mole_fraction, APBEamount]
+    return [gamma_prime_mole_fraction, apbe]
 
 # Calculate Strength and Driving Force
-def strength_and_DF(composition, temperature, dG_calculation, strength_calculation):
+def strength_and_df(composition, temperature, dG_calculation, strength_calculation):
 
     RT = 8.314*temperature
 
@@ -451,17 +451,17 @@ def strength_and_DF(composition, temperature, dG_calculation, strength_calculati
     vMAustenite = 7.225379*10**-6    ## Molar volume for FCC
     vMGammaPrime = 7.4002985*10**-6  ## Molar volume for Gamma-prime
 
-    def APBE(siteFrac):
-        gamma_0 = (0.1135*siteFrac)+0.1834
+    def APBE(sitefrac):
+        gamma_0 = (0.1135*sitefrac)+0.1834
         return gamma_0
-    def singleDislCutting(volFrac,avgRad,APBE):
-        delTauHAM = (APBE/(2*b))*((((8*APBE*avgRad*volFrac)/(np.pi*G*b**2))**0.5)-volFrac)
+    def singleDislCutting(volfrac,avgRad,APBE):
+        delTauHAM = (APBE/(2*b))*((((8*APBE*avgRad*volfrac)/(np.pi*G*b**2))**0.5)-volfrac)
         delSigmaHAM = M*delTauHAM
         return delSigmaHAM
-    def calcVolFrac(moleFrac):
-        volTot = (moleFrac*vMGammaPrime)+((1-moleFrac)*vMAustenite)
-        volFrac = (moleFrac*vMGammaPrime)/volTot
-        return volFrac    
+    def calcVolfrac(molefrac):
+        volTot = (molefrac*vMGammaPrime)+((1-molefrac)*vMAustenite)
+        volfrac = (molefrac*vMGammaPrime)/volTot
+        return volfrac    
     
     for element in composition:
         dG_calculation = dG_calculation.set_condition("w("+element+")", composition[element])
@@ -472,19 +472,19 @@ def strength_and_DF(composition, temperature, dG_calculation, strength_calculati
     dG_eta_norm = point_calculation.get_value_of(
         ThermodynamicQuantity.normalized_driving_force_of_a_phase('ETA'))
     dG_eta = dG_eta_norm * RT
-    dG_diff = dG_gammaprime - dG_eta
+    dg_diff = dG_gammaprime - dG_eta
 
     for element in composition:
         strength_calculation = strength_calculation.set_condition("w("+element+")", composition[element])
     point_calculation = strength_calculation.calculate()
 
-    gammaPrime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.
+    gamma_prime_mole_fraction = point_calculation.get_value_of(ThermodynamicQuantity.
                                                                 mole_fraction_of_a_phase("GAMMA_PRIME"))
 
-    strengthaddition=singleDislCutting(calcVolFrac(gammaPrime_mole_fraction),0.000000015,APBE(point_calculation.get_value_of("Y(GAMMA_PRIME,TI#2)")))
+    strengthaddition=singleDislCutting(calcVolfrac(gamma_prime_mole_fraction),0.000000015,APBE(point_calculation.get_value_of("Y(GAMMA_PRIME,TI#2)")))
     strength = float(341+strengthaddition/1000000)
 
-    return [dG_diff, strength]
+    return [dg_diff, strength]
 
 # TCPython Initializer and Caller for Single Point Calc
 def single_TC_caller(calcs, composition, temperature, disp=False):
@@ -518,23 +518,23 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
     result : Dict 
     [May contain, depending on what you wanted]
         "printability":
-        FR : Freezing Range [Float]
-        CSC : Cracking Susceptibility Coefficient [Float] 
+        fr : freezing Range [Float]
+        csc : Cracking Susceptibility Coefficient [Float] 
         BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
         laves_frac : Mole fraction of laves present at-print [Float]
 
         "stable_del_ferrite":
         del_ferrite : Amount of stable del_ferrite post solution treatment
 
-        "ASP":
+        "asp":
         asp : Austenite Stability Parameter
 
-        "phase_frac_and_APBE":
-        gammaPrime_mole_fraction : How much gamma Prime is in our post-aged matrix
-        APBEamount : (??)
+        "phase_frac_and_apbe":
+        gamma_prime_mole_fraction : How much gamma Prime is in our post-aged matrix
+        apbe : (??)
 
-        "strength_and_DF":
-        dG_diff : dG difference between ____ and ____ (??)
+        "strength_and_df":
+        dg_diff : dG difference between ____ and ____ (??)
         strength : Strength of alloy
    
     """
@@ -552,8 +552,8 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
         
             scheil_calculation = (system.with_scheil_calculation().
                                 set_composition_unit(CompositionUnit.MASS_FRACTION))
-            [FR, CSC, BCC_frac, laves_frac] = printability(composition, scheil_calculation, system, disp=disp)
-            results.update( {'FR' : FR, "CSC" : CSC, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
+            [fr, csc, BCC_frac, laves_frac] = printability(composition, scheil_calculation, system, disp=disp)
+            results.update( {'fr' : fr, "csc" : csc, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
         
         if "stable_del_ferrite" in calcs: 
             # system definer info
@@ -568,7 +568,7 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
             del_ferrite = stable_del_ferrite(composition, temperature["solution_temp"], system)
             results.update( {'del_ferrite' : del_ferrite} )
 
-        if "ASP" in calcs:
+        if "asp" in calcs:
             singlepoint = (tcpython.
                 set_cache_folder(os.path.basename(__file__) + "_cache").
                 select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
@@ -593,10 +593,10 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                 disable_global_minimization().
                 enable_step_separate_phases()
                 )
-            asp = ASP(composition, singlepoint, calculation)
+            asp = asp(composition, singlepoint, calculation)
             results.update( {"asp" : asp} )
 
-        if "phase_frac_and_APBE" in calcs:
+        if "phase_frac_and_apbe" in calcs:
             database = "nidata7.tdb"
             dependent_element = "fe"
             calculation = (tcpython. 
@@ -610,10 +610,10 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         set_condition(ThermodynamicQuantity.temperature(), 973.15).
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
-            [gammaPrime_mole_fraction, APBEamount] = phase_frac_and_APBE(composition, calculation)
-            results.update( {"gammaPrime_mole_fraction" : gammaPrime_mole_fraction, "APBEamount" : APBEamount} )
+            [gamma_prime_mole_fraction, apbe] = phase_frac_and_apbe(composition, calculation)
+            results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
                         
-        if "strength_and_DF" in calcs:
+        if "strength_and_df" in calcs:
             # create and configure a single equilibrium calculation
             tcpython.set_ges_version(5)
             dG_calculation = (tcpython
@@ -638,11 +638,11 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]).
                         set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         ) 
-            [dG_diff, strength] = strength_and_DF(composition, temperature["aging_temp"], dG_calculation, strength_calculation)                   
-            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+            [dg_diff, strength] = strength_and_df(composition, temperature["aging_temp"], dG_calculation, strength_calculation)                   
+            results.update( {"dg_diff" : dg_diff, "strength" : strength} )
     
     if len(results) == 0:
-        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"ASP\", \"phase_frac_and_APBE\", \"strength_and_DF\"")
+        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"asp\", \"phase_frac_and_apbe\", \"strength_and_df\"")
     
     return results 
 
@@ -678,23 +678,23 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
     result : Dict 
     [May contain, depending on what you wanted]
         "printability":
-        FR : Freezing Range [Float]
-        CSC : Cracking Susceptibility Coefficient [Float] 
+        fr : freezing Range [Float]
+        csc : Cracking Susceptibility Coefficient [Float] 
         BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
         laves_frac : Mole fraction of laves present at-print [Float]
 
         "stable_del_ferrite":
         del_ferrite : Amount of stable del_ferrite post solution treatment
 
-        "ASP":
+        "asp":
         asp : Austenite Stability Parameter
 
-        "phase_frac_and_APBE":
-        gammaPrime_mole_fraction : How much gamma Prime is in our post-aged matrix
-        APBEamount : (??)
+        "phase_frac_and_apbe":
+        gamma_prime_mole_fraction : How much gamma Prime is in our post-aged matrix
+        apbe : (??)
 
-        "strength_and_DF":
-        dG_diff : dG difference between ____ and ____ (??)
+        "strength_and_df":
+        dg_diff : dG difference between ____ and ____ (??)
         strength : Strength of alloy
    
     """
@@ -720,7 +720,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
             bcc_matr = [[calc_matr[i][j][2] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
             laves_matr = [[calc_matr[i][j][3] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
 
-            results.update( {'FR' : fr_matr, "CSC" : csc_matr, "BCC_frac" : bcc_matr, "laves_frac" : laves_matr} )
+            results.update( {'fr' : fr_matr, "csc" : csc_matr, "BCC_frac" : bcc_matr, "laves_frac" : laves_matr} )
         
         if "stable_del_ferrite" in calcs: 
             # system definer info
@@ -735,7 +735,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
             del_ferrite_matr = [[stable_del_ferrite(compositions_matrix[x][y], temperature["solution_temp"], system) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
             results.update( {'del_ferrite' : del_ferrite_matr} )
 
-        if "ASP" in calcs:
+        if "asp" in calcs:
             singlepoint = (tcpython.
                 set_cache_folder(os.path.basename(__file__) + "_cache").
                 select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
@@ -760,10 +760,10 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                 disable_global_minimization().
                 enable_step_separate_phases()
                 )
-            asp_matr = [[ASP(compositions_matrix[x][y], singlepoint, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+            asp_matr = [[asp(compositions_matrix[x][y], singlepoint, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
             results.update( {"asp" : asp_matr} )
 
-        if "phase_frac_and_APBE" in calcs:
+        if "phase_frac_and_apbe" in calcs:
             database = "nidata7.tdb"
             dependent_element = "fe"
             calculation = (tcpython. 
@@ -778,14 +778,14 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
 
-            res = [[phase_frac_and_APBE(compositions_matrix, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+            res = [[phase_frac_and_apbe(compositions_matrix, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
 
-            gammaPrime_mole_fraction =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            APBEamount =                [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            gamma_prime_mole_fraction =     [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            apbe    =                       [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
 
-            results.update( {"gammaPrime_mole_fraction" : gammaPrime_mole_fraction, "APBEamount" : APBEamount} )
+            results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
                         
-        if "strength_and_DF" in calcs:
+        if "strength_and_df" in calcs:
             # create and configure a single equilibrium calculation
             tcpython.set_ges_version(5)
             dG_calculation = (tcpython
@@ -811,14 +811,14 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         ) 
 
-            res = [[strength_and_DF(compositions_matrix, temperature["aging_temp"], dG_calculation, strength_calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]                   
+            res = [[strength_and_df(compositions_matrix, temperature["aging_temp"], dG_calculation, strength_calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]                   
 
-            dG_diff =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            dg_diff =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
             strength = [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
 
-            results.update( {"dG_diff" : dG_diff, "strength" : strength} )
+            results.update( {"dg_diff" : dg_diff, "strength" : strength} )
     
     if len(results) == 0:
-        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"ASP\", \"phase_frac_and_APBE\", \"strength_and_DF\"")
+        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"asp\", \"phase_frac_and_apbe\", \"strength_and_df\"")
     
     return results 
