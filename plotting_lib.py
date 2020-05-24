@@ -20,7 +20,7 @@ def file_name(composition0, element1={}, element2={}):
     return title
 
 # Generate Data and Save
-def gen_and_save(composition0, tests, element1={}, element2={}, temps={}):
+def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwrite=False):
     folder = subtitle(composition0) 
     if not os.path.exists(folder):
         os.mkdir(folder)
@@ -38,6 +38,12 @@ def gen_and_save(composition0, tests, element1={}, element2={}, temps={}):
 
     # remove duplicates
     tests = list(dict.fromkeys(tests))
+
+    """
+    MOVE OVERWRITE FUNCTIONALITY HERE!!!!!!
+
+    """
+
 
     if len(element1) == 0:
         data = single_TC_caller(tests, composition0, temps)
@@ -219,9 +225,20 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     fig.show() 
 
 # Runner 
-def run():
-    pass 
+def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, overwrite=False):
 
-# Printer
-def printer():
-    pass 
+    gen_and_save(composition0, tests, element1=element1, element2=element2, temps=temps, overwrite=overwrite) 
+
+    # if single point, print out a nice table and save the nice table
+    if len(element1) == 0:
+        data = load_and_use(compositions_matrix, tests, temps=temps)
+
+        """
+        ADD PRETTY TABLE STUFF HERE
+        """
+        return None
+    
+    # else plot the stuff
+    plotter(composition0, tests, element1, element2, temps, manual=manual)
+
+ 
