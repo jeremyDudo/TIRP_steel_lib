@@ -3,6 +3,7 @@ import os
 import numpy as np 
 from composition_lib import compositions_matrix
 from TC_lib import matrix_TC_caller, single_TC_caller
+from prettytable import PrettyTable
 
 # for plotting/saving
 def subtitle(composition0):
@@ -39,11 +40,20 @@ def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwr
     # remove duplicates
     tests = list(dict.fromkeys(tests))
 
-    """
-    MOVE OVERWRITE FUNCTIONALITY HERE!!!!!!
-
-    """
-
+    filename_dict = {
+        "printability" : filename + "_printability",
+        "stable_del_ferrite" : filename + "_del_ferrite",
+        "asp" : filename + "_asp",
+        "phase_frac_and_apbe" : filename + "_phase_frac_and_apbe",
+        "strength_and_df" : filename+"_strength_and_df"
+    }
+    # sorry for Ugly comprehension, but need to fliter list down to only those being called in the TC_caller & filename_dict for the loop to work
+    tests = [k for k in tests if 'printability' in k or 'stable_del_ferrite' in k or 'asp' in k or 'phase_frac_and_apbe' in k or 'strength_and_df' in k]
+    for test in tests:
+        # check if file has been saved and if we don't want to overwrite
+        if os.path.exists(filename_dict[test]+".npz") and not overwrite: 
+            # if we have data we don't need to overwrite, don't run the test again
+            tests.remove(test)
 
     if len(element1) == 0:
         data = single_TC_caller(tests, composition0, temps)
@@ -84,8 +94,6 @@ def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwr
 # Load to use 
 def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
     folder = subtitle(composition0) 
-    if not os.path.exists(folder):
-        os.mkdir(folder)
     folder += "/"
     filename = folder + file_name(composition0, element1=element1, element2=element2)
 
@@ -190,12 +198,12 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     data_dict = { # this is a sad necessity, a weakness in my naming convention :(
         'fr' : "fr",
         'csc' : 'csc',
-        'hcs' : 'hcs,
+        'hcs' : 'hcs',
         'meta_del_ferrite' : 'bcc',
         'laves' : 'laves',
         'stable_del_ferrite' : 'del-ferrite',
         'asp' : 'asp',
-        'gamma_prime' : 'gamma_prime,
+        'gamma_prime' : 'gamma_prime',
         'apbe' : 'apbe',
         'dg_diff' : 'dg_diff',
         'strength' : 'strength' 
@@ -233,12 +241,18 @@ def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, o
     if len(element1) == 0:
         data = load_and_use(compositions_matrix, tests, temps=temps)
 
-        """
-        ADD PRETTY TABLE STUFF HERE
-        """
+        table = PrettyTable() 
+
+        field_names = list(data.keys())
+        field_names.sort() 
+        row = [data[key] for key in field_names] 
+
+        table.field_names = field_names
+        table.add_row(row)
+        print(table)
         return None
     
     # else plot the stuff
     plotter(composition0, tests, element1, element2, temps, manual=manual)
-
+    return None
  
