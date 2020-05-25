@@ -487,8 +487,9 @@ def strength_and_df(composition, temperature, dG_calculation, strength_calculati
     return [dg_diff, strength]
 
 # Calculate average diameter of grain boundaries based on oxides
-def zener(d,f,Z):
+def oxides_grains(d,f,Z):
     """
+    Zener-Gladman Grain Pinning Eq.
     d : average pinning precipitate diameter
     f : total volume fraction of the pinning precipitates
     Z : fitting parameter related to the size distribution of the grains
