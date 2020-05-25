@@ -17,4 +17,3 @@ def compositions_matrix(composition0, element1, element2):
     
     composition_matr = [[update_composition(composition0, (element1["name"],x), (element2["name"], y)) for y in y_vals] for x in x_vals]
     return composition_matr
-

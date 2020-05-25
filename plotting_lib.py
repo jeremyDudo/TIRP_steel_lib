@@ -4,6 +4,7 @@ import numpy as np
 from composition_lib import compositions_matrix
 from TC_lib import matrix_TC_caller, single_TC_caller
 from prettytable import PrettyTable
+import sys
 
 # for plotting/saving
 def subtitle(composition0):
@@ -21,20 +22,25 @@ def file_name(composition0, element1={}, element2={}):
     return title
 
 # Generate Data and Save
-def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwrite=False):
+def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overwrite=False):
+    """
+    ADD COMMENTS
+
+    """
     folder = subtitle(composition0) 
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
     filename = folder + file_name(composition0, element1=element1, element2=element2)
+    tests = [test for test in testss]
 
-    if "fr" or "csc" or "hcs" or "meta_del_ferrite" or "laves" in tests:
+    if "fr" in tests or "csc" in tests or "hcs" in tests or "meta_del_ferrite" in tests or "laves" in tests:
         tests.append("printability")
 
-    if "gamma_prime" or "apbe" in tests:
+    if "gamma_prime" in tests or "apbe" in tests:
         tests.append("phase_frac_and_apbe")
 
-    if "dg_diff" or "strength" in tests:
+    if "dg_diff" in tests or "strength" in tests:
         tests.append("strength_and_df") 
 
     # remove duplicates
@@ -47,13 +53,18 @@ def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwr
         "phase_frac_and_apbe" : filename + "_phase_frac_and_apbe",
         "strength_and_df" : filename+"_strength_and_df"
     }
+
     # sorry for Ugly comprehension, but need to fliter list down to only those being called in the TC_caller & filename_dict for the loop to work
     tests = [k for k in tests if 'printability' in k or 'stable_del_ferrite' in k or 'asp' in k or 'phase_frac_and_apbe' in k or 'strength_and_df' in k]
+
+    # had a really weird bug where the most concise solution was causing the loop to fail so this is my workaround
+    remover = []
     for test in tests:
         # check if file has been saved and if we don't want to overwrite
         if os.path.exists(filename_dict[test]+".npz") and not overwrite: 
             # if we have data we don't need to overwrite, don't run the test again
-            tests.remove(test)
+            remover.append(test)
+    tests = [test for test in tests if test not in remover]
 
     if len(element1) == 0:
         data = single_TC_caller(tests, composition0, temps)
@@ -67,12 +78,12 @@ def gen_and_save(composition0, tests, element1={}, element2={}, temps={}, overwr
         save_mat_csc = np.asarray(csc)
         save_mat_bcc = np.asarray(bcc)
         save_mat_laves = np.asarray(laves)
-        np.savez_compressed(filename + "_printability", fr=save_mat_fr, csc=save_mat_csc, bcc=save_mat_bcc, laves=save_mat_laves)
+        np.savez_compressed(filename + "_printability", fr=save_mat_fr, csc=save_mat_csc, meta_del_ferrite=save_mat_bcc, laves=save_mat_laves)
             
     if "stable_del_ferrite" in tests:
         del_ferrite = data["del_ferrite"]
         save_mat_del_ferrite = np.asarray(del_ferrite)
-        np.savez_compressed(filename + "_del_ferrite", del_ferrite=save_mat_del_ferrite) 
+        np.savez_compressed(filename + "_del_ferrite", stable_del_ferrite=save_mat_del_ferrite) 
 
     if "asp" in tests:
         asp = data["asp"]
@@ -97,8 +108,10 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
     folder += "/"
     filename = folder + file_name(composition0, element1=element1, element2=element2)
 
+    # commented out lines show what handles & info is being pushed into the data dict
     data = {} 
-    if "printability" or "hcs" or "fr" or "csc" or "meta_del_ferrite" or "laves" in tests:
+
+    if "printability" in tests or "hcs" in tests or "fr" in tests or "csc" in tests or "meta_del_ferrite" in tests or "laves" in tests:
         res = np.load(filename + "_printability.npz")
         # fr, csc, bcc, laves = res["fr"], res["csc"], res["bcc"], res["laves"]
         data.update( dict(res) )# {"fr": fr, "csc": csc, "bcc":bcc, "laves":laves})
@@ -110,11 +123,11 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
         res = np.load(filename + "_asp.npz")
         # asp = res["asp"]
         data.update( dict(res) )# {"asp" : asp} )
-    if "phase_frac_and_apbe" or "gamma_prime" or "apbe" in tests:
+    if "phase_frac_and_apbe" in tests or "gamma_prime" in tests or "apbe" in tests:
         res = np.load(filename + "_phase_frac_and_apbe.npz")
         # gamma_prime, apbe = res["gamma_prime"], res["apbe"]
         data.update( dict(res) )# {"gamma_prime" : gamma_prime, "apbe" : apbe} )
-    if "strength_and_df" or "dg_diff" or "strength" in tests:
+    if "strength_and_df" in tests or "dg_diff" in tests or "strength" in tests:
         res = np.load(filename + "_strength_and_df.npz")
         # dg_diff, strength = res["dg_diff"], res["strength"]
         data.update( dict(res) )# {"dg_diff": dg_diff, "strength" : strength} )
@@ -124,7 +137,7 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
 # Plotter
 def plotter(composition0, tests, element1, element2, temps, manual=False):
     subtitle_ = subtitle(composition0) 
-    folder = subtitle + "/Plots" 
+    folder = subtitle_ + "/Plots" 
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
@@ -138,8 +151,8 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     title = tests[0] 
     for i in tests[1:]: 
         title += " + " + i
-    title += " Contours"
-    
+    title += " contours"
+
     figsize_ = 10
     fig, ax = plt.subplots(figsize=(figsize_, figsize_)) 
     
@@ -185,9 +198,9 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         'fr' : "fr: %1.0f",
         'csc' : 'csc: %1.1f',
         'hcs' : 'hcs: %1.2f',
-        'meta_del_ferrite' : 'del-ferrite (AP): %1.2f',
+        'meta_del_ferrite' : 'del_ferrite (AP): %1.2f',
         'laves' : 'laves: %1.3f',
-        'stable_del_ferrite' : 'del-ferrite (PS): %1.3f',
+        'stable_del_ferrite' : 'del_ferrite (PS): %1.3f',
         'asp' : 'asp: %1.0f',
         'gamma_prime' : 'gamma\': %1.0f',
         'apbe' : 'APBE: %1.0f',
@@ -195,23 +208,14 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         'strength' : 'strength: %1.0f'       
     }
 
-    data_dict = { # this is a sad necessity, a weakness in my naming convention :(
-        'fr' : "fr",
-        'csc' : 'csc',
-        'hcs' : 'hcs',
-        'meta_del_ferrite' : 'bcc',
-        'laves' : 'laves',
-        'stable_del_ferrite' : 'del-ferrite',
-        'asp' : 'asp',
-        'gamma_prime' : 'gamma_prime',
-        'apbe' : 'apbe',
-        'dg_diff' : 'dg_diff',
-        'strength' : 'strength' 
-    }
-
+    print(data.keys())
     def contoured(test):
         contour_font = 20
-        contour = ax.contour(X, Y, data[data_dict[test]], colors=color_dict[test], linestyles='dashed')
+        if test == "hcs":
+            Z = hcs(data['fr'], data['csc'])
+        else:
+            Z = data[test]
+        contour = ax.contour(X, Y, Z, colors=color_dict[test], linestyles='dashed')
         fmt = fmt_dict[test]
         ax.clabel(contour, inline=True, fontsize=contour_font, fmt=fmt, manual=manual)
 
@@ -234,22 +238,48 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
 
 # Runner 
 def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, overwrite=False):
+    """
+    ADD COMMENTS
 
+    """
     gen_and_save(composition0, tests, element1=element1, element2=element2, temps=temps, overwrite=overwrite) 
 
     # if single point, print out a nice table and save the nice table
     if len(element1) == 0:
-        data = load_and_use(compositions_matrix, tests, temps=temps)
-
+        data = load_and_use(composition0, tests, temps=temps)
+        
+        def hcs(fr, csc):
+            return fr*csc/100
+        if "hcs" in tests:
+            data.update( {"hcs": hcs(data['fr'], data['csc'])} )
         table = PrettyTable() 
 
-        field_names = list(data.keys())
+        field_names = tests
         field_names.sort() 
+        print(field_names)
         row = [data[key] for key in field_names] 
-
+        data_dict = { 
+            'fr' : "FR",
+            'csc' : 'CSC',
+            'hcs' : 'HCS',
+            'meta_del_ferrite' : 'Del-Ferrite (At Print)',
+            'laves' : 'Laves',
+            'stable_del_ferrite' : 'Del-Ferrite (Post Solutionizing)',
+            'asp' : 'ASP',
+            'gamma_prime' : 'Gamma\'',
+            'apbe' : 'APBE',
+            'dg_diff' : 'dG_diff',
+            'strength' : 'Strength' 
+        }
+        field_names = [data_dict[name] for name in field_names]
         table.field_names = field_names
         table.add_row(row)
-        print(table)
+        title_ = subtitle(composition0)
+        print(table.get_string(title=title_))
+        print(title_)
+        table_txt = table.get_string()
+        with open(title_ + '/single_point.txt','w') as file:
+            file.write(table_txt)
         return None
     
     # else plot the stuff

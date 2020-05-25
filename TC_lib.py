@@ -540,7 +540,9 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
     """
     elements = list(composition.keys())
     results = {}
-    with TCPython as tcpython: 
+    if len(calcs) == 0:
+        return results
+    with TCPython() as tcpython: 
         if "printability" in calcs: 
             # system definer info
             database = "TCFE10"
@@ -670,7 +672,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
     temperature : Dict
         Ex: temps = {
             "solution_temp" : 1000 + 273.15,
-            "aging_temp" = 973.15
+            "aging_temp" : 973.15
         }
 
     Returns
@@ -700,7 +702,9 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
     """
     elements = list(compositions_matrix[0][0].keys())
     results = {}
-    with TCPython as tcpython: 
+    if len(calcs) == 0:
+        return results
+    with TCPython() as tcpython: 
         if "printability" in calcs: 
             # system definer info
             database = "TCFE10"
