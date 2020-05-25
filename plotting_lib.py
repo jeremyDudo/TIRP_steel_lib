@@ -8,6 +8,12 @@ import sys
 
 # for plotting/saving
 def subtitle(composition0):
+    """
+    Currently Hard-Coded for Fe systems!
+    Makes the subtitle for the plots, which is also used to name the folder within "Results"
+
+    Ex: Fe-16.0Ni-13.0Cr-3.0Ti-1.3Mo-0.3V-0.2Al-0.03C
+    """
     dependent_element = "Fe"
     plotName = dependent_element
     for key, value in sorted(composition0.items(), key=lambda item: item[1], reverse=True):
@@ -16,6 +22,13 @@ def subtitle(composition0):
 
 # file name generator
 def file_name(composition0, element1={}, element2={}):
+    """
+    For single points: names npz files as point_calc_test_name.npz
+
+    For matrix variations: names npz files as Vary Element1-Element2__(element1Start-element1Finish-element1Length)(element2Start-element2Finish-element2Length)_test_name.npz
+
+    These are for readability at a glance (so user knows if the data has been generated for the test)
+    """
     if len(element1) == 0:
         return "point_calc"
     title = "Vary " + element1["name"] + "-" + element2["name"] + "__(" + str(element1["start"]) + "-" + str(element1["end"]) + "-" + str(element1["length"]) + ")(" + str(element2["start"]) + "-" + str(element2["end"]) + "-" + str(element2["length"]) + ")"
@@ -24,33 +37,43 @@ def file_name(composition0, element1={}, element2={}):
 # Generate Data and Save
 def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overwrite=False):
     """
-    ADD COMMENTS
+    This is the big caller for this script
+    Takes the variables defined in run.py and determines if single or matrix calcs
 
+    This calls our TC_lib funcs, and then writes the data to .npz compressed files for later use
     """
+
+    # Save our data in a results folder for cleanness
     folder = "Results"
     if not os.path.exists(folder):
         os.mkdir(folder)
+    # Differentiate tests based on compositions
     subtitle_ = subtitle(composition0)
     folder += "/" + subtitle_
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
 
+    # This is how we name our individual tests within the composition folder
     filename = folder + file_name(composition0, element1=element1, element2=element2)
     tests = [test for test in testss]
 
+    # all of these tests are generated in the printability call in the TC_calc conditional matching "printability"
     if "fr" in tests or "csc" in tests or "hcs" in tests or "meta_del_ferrite" in tests or "laves" in tests:
         tests.append("printability")
 
+    # both of theses tests are generated at once in "phase_frac_and_apbe"
     if "gamma_prime" in tests or "apbe" in tests:
         tests.append("phase_frac_and_apbe")
 
+    # again, the TC_lib matches "strength_and_df", but the user wants "dg_diff" or "strength" so this is a compromise
     if "dg_diff" in tests or "strength" in tests:
         tests.append("strength_and_df") 
 
     # remove duplicates
     tests = list(dict.fromkeys(tests))
 
+    # for each test, give filename a different extension for differentiability
     filename_dict = {
         "printability" : filename + "_printability",
         "stable_del_ferrite" : filename + "_del_ferrite",
@@ -60,23 +83,27 @@ def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overw
     }
 
     # sorry for Ugly comprehension, but need to fliter list down to only those being called in the TC_caller & filename_dict for the loop to work
+    # we want only the tests that TC_lib cares about so the loop is faster
     tests = [k for k in tests if 'printability' in k or 'stable_del_ferrite' in k or 'asp' in k or 'phase_frac_and_apbe' in k or 'strength_and_df' in k]
 
-    # had a really weird bug where the most concise solution was causing the loop to fail so this is my workaround
+    # removing elements from the list you loop over kept crashing so had to do it in two steps
     remover = []
     for test in tests:
         # check if file has been saved and if we don't want to overwrite
         if os.path.exists(filename_dict[test]+".npz") and not overwrite: 
             # if we have data we don't need to overwrite, don't run the test again
             remover.append(test)
+    # step 2 to remove elements that we don't need to (re)generate
     tests = [test for test in tests if test not in remover]
 
+    # check if a singlepoint by seeing if we are testing ranges of elements
     if len(element1) == 0:
         data = single_TC_caller(tests, composition0, temps)
     else:
         comp_matr = compositions_matrix(composition0, element1, element2)
         data = matrix_TC_caller(tests, comp_matr, temps)
 
+    # pull all data out of generated data and put into the save file with nice dict keys!
     if "printability" in tests:
         fr, csc, bcc, laves = data["fr"], data["csc"], data["BCC_frac"], data["laves_frac"]
         save_mat_fr = np.asarray(fr)
@@ -109,6 +136,13 @@ def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overw
 
 # Load to use 
 def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
+    """
+    Effectively the other half of "gen_and_save"
+    Takes same arguments minus "overwrite" b/c you aren't going to overwrite anything while loading
+
+    This just locates the files saved by "gen_and_save", loads it, and updates it all into one dictionary with the same keys
+    """
+    # find file that was saved
     folder = "Results"
     subtitle_ = subtitle(composition0)
     folder += "/" + subtitle_ 
@@ -116,6 +150,7 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
     filename = folder + file_name(composition0, element1=element1, element2=element2)
 
     # commented out lines show what handles & info is being pushed into the data dict
+    # Please do not remove, I think it is helpful to see what is being moved where
     data = {} 
 
     if "printability" in tests or "hcs" in tests or "fr" in tests or "csc" in tests or "meta_del_ferrite" in tests or "laves" in tests:
@@ -143,6 +178,14 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
 
 # Plotter
 def plotter(composition0, tests, element1, element2, temps, manual=False):
+    """
+    Calls our data generator/loader
+    Unpacks all of our data
+    Plots our data
+    """
+
+    # We want the plots to go in the same folder as the rest of the data, but in a subfolder "plots"
+    # The conditionals are absolutely redundant at this point, might be deleted for speed?
     folder = "Results"
     if not os.path.exists(folder):
         os.mkdir(folder)
@@ -154,18 +197,24 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
+    
+    # Convert our element dictionaries into np.linspaces 
     x_vals = np.linspace(element1["start"]*100, element1["end"]*100, element1["length"])
     y_vals = np.linspace(element2["start"]*100, element2["end"]*100, element2["length"])
     
+    # for contour plotting
     X, Y = np.meshgrid(x_vals, y_vals) 
     
+    # load the data
     data = load_and_use(composition0, tests, element1, element2, temps) 
     
+    # title is to help show what tests are run
     title = tests[0] 
     for i in tests[1:]: 
         title += " + " + i
     title += " contours"
 
+    # open a plot
     figsize_ = 10
     fig, ax = plt.subplots(figsize=(figsize_, figsize_)) 
     
@@ -174,6 +223,9 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         return fr * csc / 100 
 
     # update the tests list
+    # the big names are the names of the functions that calculate more than a single thing --
+    # we don't want redundencies in the plotting, and we want the tests to only have the names 
+    # of plots that we can add
     if "printability" in tests:
         tests.remove("printability")
         tests.append("fr")
@@ -193,6 +245,7 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     # remove duplicates
     tests = list(dict.fromkeys(tests))
 
+    # for contours, so we can have a single function
     color_dict = { # need to have better colors yikes
         'fr' : 'green',
         'csc' : '#cc5500',
@@ -207,6 +260,8 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         'strength' : 'blue'
     }
 
+    # for contours, so we can have a single function
+    # the lables are a maybe, Greg doesn't like them
     fmt_dict = { # check significant digits, these are hard-coded!
         'fr' : "fr: %1.0f",
         'csc' : 'csc: %1.1f',
@@ -221,56 +276,79 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         'strength' : 'strength: %1.0f'       
     }
 
-
+    # function-ize our plotting so that it is Easy
     def contoured(test):
+
+        # legible font
         contour_font = 20
+
+        # hcs is not a listed calc, but is a function of two listed calcs, check for it (this is definitely slow and should likely be fixed in the TC_lib)
         if test == "hcs":
             Z = hcs(data['fr'], data['csc'])
         else:
             Z = data[test]
+        
+        # actually generate and plot the contour
         contour = ax.contour(X, Y, Z, colors=color_dict[test], linestyles='dashed')
         fmt = fmt_dict[test]
         ax.clabel(contour, inline=True, fontsize=contour_font, fmt=fmt, manual=manual)
 
+    # plot all of the contours
     for test in tests:
         contoured(test)
 
+    # Format the rest of the plot
+
+    # legible font sizes for a ppt
     title_font = 22
     subtitle_font = 18   
     ax_font = 22
     tick_font = 15
+    # supertitle with the tests 
     fig.suptitle(title, y=0.945, fontsize=title_font)
+    # subtitle with the composition
     ax.set_title(subtitle_, fontsize=subtitle_font)
+    # name lables with our varied elements
     ax.set_xlabel(element1["name"] + ' (wt %)', fontsize=ax_font)
     ax.set_ylabel(element2["name"] + ' (wt %)', fontsize=ax_font)
+    # set size of ticks
     ax.tick_params(axis='x',labelsize=tick_font)
     ax.tick_params(axis='y',labelsize=tick_font)
+    # pale grid for readability
     ax.grid(axis='both',alpha=0.5)
+    # save
     plt.savefig(folder+file_name(composition0, element1, element2)+title+".png")
     fig.show() 
 
 # Runner 
 def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, overwrite=False):
     """
-    ADD COMMENTS
-
+    To be called in run.py
+    Takes parameters defined in run.py
+    Runs the tests you want!
     """
+    # make sure data is generated & saved
     gen_and_save(composition0, tests, element1=element1, element2=element2, temps=temps, overwrite=overwrite) 
 
     # if single point, print out a nice table and save the nice table
     if len(element1) == 0:
+        # load the data
         data = load_and_use(composition0, tests, temps=temps)
         
+        # again hcs is a function of two named tests, so ugly conditionals
         def hcs(fr, csc):
             return fr*csc/100
         if "hcs" in tests:
             data.update( {"hcs": hcs(data['fr'], data['csc'])} )
+
+        # make a pretty table
         table = PrettyTable() 
 
+        # headers of the columns are the names of each test
         field_names = tests
+
+        # format the column headers nicely
         field_names.sort() 
-        print(field_names)
-        row = [data[key] for key in field_names] 
         data_dict = { 
             'fr' : "FR",
             'csc' : 'CSC',
@@ -286,10 +364,17 @@ def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, o
         }
         field_names = [data_dict[name] for name in field_names]
         table.field_names = field_names
+
+        # row with the numerical data
+        row = [data[key] for key in field_names] 
         table.add_row(row)
+
+        # just calling the test our single_point file
         title_ = subtitle(composition0)
         print(table.get_string(title=title_))
-        print(title_)
+
+        # save the table to a text file
+        # HEY: THIS FILE IS ALWAYS OVERWRITTEN 
         table_txt = table.get_string()
         folder = "Results"
         if not os.path.exists(folder):

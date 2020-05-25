@@ -53,13 +53,14 @@ I didn't include them in the github repo bc I am very unclear on the copyright o
 """
 tests = ["stable_del_ferrite", "meta_del_ferrite", "hcs"]
 
-# For if bugs are found in the code after generating data
+# If you need to overwrite exisiting data
 overwrite = False 
 
 # For final plots to allow manual contour labelling (so they don't overlap)
+# The contours tend to be really ugly with where they put labels :/
 manual = False
 
-# run your test!
+# run your test(s, comment out as needed)!
 # for a matrix of compositions:
 run(composition, tests, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite)
 
