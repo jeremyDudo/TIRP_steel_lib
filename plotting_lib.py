@@ -27,10 +27,15 @@ def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overw
     ADD COMMENTS
 
     """
-    folder = subtitle(composition0) 
+    folder = "Results"
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    subtitle_ = subtitle(composition0)
+    folder += "/" + subtitle_
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
+
     filename = folder + file_name(composition0, element1=element1, element2=element2)
     tests = [test for test in testss]
 
@@ -104,7 +109,9 @@ def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overw
 
 # Load to use 
 def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
-    folder = subtitle(composition0) 
+    folder = "Results"
+    subtitle_ = subtitle(composition0)
+    folder += "/" + subtitle_ 
     folder += "/"
     filename = folder + file_name(composition0, element1=element1, element2=element2)
 
@@ -136,8 +143,14 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
 
 # Plotter
 def plotter(composition0, tests, element1, element2, temps, manual=False):
-    subtitle_ = subtitle(composition0) 
-    folder = subtitle_ + "/Plots" 
+    folder = "Results"
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    subtitle_ = subtitle(composition0)
+    folder += "/" + subtitle_
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    folder += "/Plots" 
     if not os.path.exists(folder):
         os.mkdir(folder)
     folder += "/"
@@ -208,7 +221,7 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         'strength' : 'strength: %1.0f'       
     }
 
-    print(data.keys())
+
     def contoured(test):
         contour_font = 20
         if test == "hcs":
@@ -233,7 +246,7 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     ax.tick_params(axis='x',labelsize=tick_font)
     ax.tick_params(axis='y',labelsize=tick_font)
     ax.grid(axis='both',alpha=0.5)
-    plt.savefig(folder+title+file_name(composition0, element1, element2)+".png")
+    plt.savefig(folder+file_name(composition0, element1, element2)+title+".png")
     fig.show() 
 
 # Runner 
@@ -278,7 +291,13 @@ def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, o
         print(table.get_string(title=title_))
         print(title_)
         table_txt = table.get_string()
-        with open(title_ + '/single_point.txt','w') as file:
+        folder = "Results"
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        folder += "/" + title_
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(folder+ '/single_point.txt','w') as file:
             file.write(table_txt)
         return None
     

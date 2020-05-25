@@ -2,8 +2,8 @@ from plotting_lib import run
 
 composition = {
     "C": 0.0003,
-    "Cr": .12,
-    "Ni": .17,
+    "Cr": .13,
+    "Ni": .16,
     "Mo": .013,
     "Ti": 0.030,
     "V": 0.003,
@@ -64,4 +64,4 @@ manual = False
 run(composition, tests, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite)
 
 # for a single point:
-# run(composition, tests, temps=temps, manual=manual, overwrite=overwrite)
+run(composition, tests, temps=temps, manual=manual, overwrite=overwrite)
