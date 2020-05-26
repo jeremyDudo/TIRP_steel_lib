@@ -117,33 +117,47 @@ def printability(composition, scheil_calculation, system, disp=False):
         plt.show()
         sys.exit()
     
-    del_ferrite = False
-    laves = False
-    for label in scheil_curve:        
-        if "BCC_A2" in label:
-            del_ferrite = True
-        
-        if "C14_LAVES" in label:
-            laves = True
+    def find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return idx
+    def FR_cutoff(NS, T, cutoff):
+        T_idx = find_nearest(NS, cutoff)
+        T_cutoff = T[T_idx]
+        FR_cutoff = round(T_cutoff-min(T), 5)
+        return FR_cutoff
+
+
     print(composition)
+
     NS_T = solidification.get_values_of(
         ScheilQuantity.mole_fraction_of_all_solid_phases(),
         ScheilQuantity.temperature())
     print("Got NS_T")
+
     NS_NH = solidification.get_values_of(
         ScheilQuantity.mole_fraction_of_all_solid_phases(),
         ScheilQuantity.heat_per_mole())
     print("Got NS_NH")
-    # check if labels contains BCC_A2 before generating this
+
+    del_ferrite = False
+    for label in scheil_curve:        
+        if "BCC_A2" in label:
+            del_ferrite = True
+
     if del_ferrite:
         BCC_frac0 = solidification.get_values_of(
             ScheilQuantity.mole_fraction_of_all_solid_phases(),
             ScheilQuantity.mole_fraction_of_a_solid_phase("BCC_A2"))
-        BCC_frac = BCC_frac0[1][-1]
-        
+        BCC_frac = BCC_frac0[1][-1] 
     else:
         BCC_frac = 0
     print("Got BCC_frac")
+
+    laves = False 
+    if "C14_LAVES" in label:
+        laves = True
+
     if laves:
         laves_frac0 = solidification.get_values_of(
             ScheilQuantity.mole_fraction_of_all_solid_phases(),
@@ -157,7 +171,7 @@ def printability(composition, scheil_calculation, system, disp=False):
     NH = NS_NH[1]
     T = NS_T[1]
     
-    fr = round(max(T) - min(T), 2)
+    fr = FR_cutoff(NS, T, 0.02)
 
     # Calculate Cracking Susceptibility Coeffieicent 
     def csc(NS, NH):
@@ -624,186 +638,119 @@ def strength_and_df(composition, temperature, dG_calculation, strength_calculati
     return [dg_diff, strength]
 
 # Calculate average diameter of grain boundaries based on oxides
-def oxides_grains(d,f,Z):
-    """
-    Zener-Gladman Grain Pinning Eq.
-    d : average pinning precipitate diameter
-    f : total volume fraction of the pinning precipitates
-    Z : fitting parameter related to the size distribution of the grains
-    """
-    return 4/3 * (3/2 - 2/Z) * d/f
 
-# TCPython Initializer and Caller for Single Point Calc
-def single_TC_caller(calcs, composition, temperature, disp=False):
-    """
-    Parameters
-    ----------
-    calcs : List
-        Ex: ["printability", "stable_del_ferrite"]
+def oxides(composition, scheil_calculation, system, disp=False):
+    for element in composition:
+        scheil_calculation = scheil_calculation.set_composition(element, composition[element])
+
+    solidification = scheil_calculation.calculate()
+
+    scheil_curve = solidification.get_values_grouped_by_stable_phases_of(
+            ScheilQuantity.mole_fraction_of_all_solid_phases(),
+            ScheilQuantity.temperature())
+
+    def oxides_grains(d,f,Z):
+        """
+        Zener-Gladman Grain Pinning Eq.
+        d : average pinning precipitate diameter [72nm]
+        f : total volume fraction of the pinning precipitates [np.linspace(0, .20, 21)]
+        Z : fitting parameter related to the size distribution of the grains [1.6-1.8]
+        """
+        return 4/3 * (3/2 - 2/Z) * d/f
+
+    if disp: 
+        # Create plot title of composition, e.g., Fe-10Ni-7Cr-0.2C
+        dependent_element = "Fe"
+        plotName = dependent_element
+        for key, value in sorted(composition.items(), key=lambda item: item[1], reverse=True):
+            plotName = plotName+"-%s%s" % (value, key)
+        # 1. Plot the solidification curve (mole fraction solid phases vs. T) including the equilibrium
+        temp_min = 1e6
+        temp_max = -1e6
+        fig, ax_1 = plt.subplots(figsize=(10,10))
         
-    composition : Dict
-        Ex: c_1217 = {
-                       "C": 0.03/100,
-                       "Cr": 12/100,
-                       "Ni": 17/100,
-                       "Mo": 1.3/100,
-                       "Ti": 3.0/100,
-                       "V": 0.3/100,
-                       "Al": 0.2/100
-                       #"B": 0.01/100
-                       #"O": 0.015/100
-                       }  # in wt-fraction #
-        
-    temperature : Dict
-        Ex: temps = {
-            "solution_temp" : 1000 + 273.15,
-            "aging_temp" = 973.15
-        }
 
-    Returns
-    -------
-    result : Dict 
-    [May contain, depending on what you wanted]
-        "printability":
-        fr : freezing Range [Float]
-        csc : Cracking Susceptibility Coefficient [Float] 
-        BCC_frac : Mole fraction of delta-Ferrite present at-print [Float]
-        laves_frac : Mole fraction of laves present at-print [Float]
-
-        "stable_del_ferrite":
-        del_ferrite : Amount of stable del_ferrite post solution treatment
-
-        "asp":
-        asp : Austenite Stability Parameter
-
-        "phase_frac_and_apbe":
-        gamma_prime_mole_fraction : How much gamma Prime is in our post-aged matrix
-        apbe : (??)
-
-        "strength_and_df":
-        dg_diff : dG difference between ____ and ____ (??)
-        strength : Strength of alloy
-   
-    """
-    elements = list(composition.keys())
-    results = {}
-    if len(calcs) == 0:
-        return results
-    with TCPython() as tcpython: 
-        if "printability" in calcs: 
-            # system definer info
-            database = "TCFE10"
-            dependent_element = "Fe"
-            system = (tcpython.
-                    set_cache_folder(os.path.basename(__file__) + "_cache").
-                    select_database_and_elements(database, [dependent_element] + elements).
-                    get_system_for_scheil_calculations())
-        
-            scheil_calculation = (system.with_scheil_calculation().
-                                set_composition_unit(CompositionUnit.MASS_FRACTION))
-            [fr, csc, BCC_frac, laves_frac] = printability(composition, scheil_calculation, system, disp=disp)
-            results.update( {'fr' : fr, "csc" : csc, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
-        
-        if "stable_del_ferrite" in calcs: 
-            # system definer info
-            database = "TCFE10"
-            dependent_element = "Fe"
-            system = (tcpython
-                    .set_cache_folder(os.path.basename(__file__) + "_cache")
-                    .select_database_and_elements(database, [dependent_element] + elements)
-                    .get_system()
-                    .with_single_equilibrium_calculation())
-                
-            del_ferrite = stable_del_ferrite(composition, temperature["solution_temp"], system)
-            results.update( {'del_ferrite' : del_ferrite} )
-
-        if "asp" in calcs:
-            singlepoint = (tcpython.
-                set_cache_folder(os.path.basename(__file__) + "_cache").
-                select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
-                without_default_phases().
-                select_phase("FCC_A1").
-                select_phase("gamma_prime").
-                get_system().
-                with_single_equilibrium_calculation().
-                set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
-                set_gibbs_energy_addition_for('gamma_prime', -1456)
-                )
-            calculation = (tcpython.
-                set_cache_folder(os.path.basename(__file__) + "_cache").
-                select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
-                without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
-                get_system().
-                with_property_diagram_calculation().
-                with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
-                            set_min(temperature["start_temp"]).
-                            set_max(temperature["end_temp"]).
-                            with_axis_type(Linear().set_max_step_size(1))).
-                disable_global_minimization().
-                enable_step_separate_phases()
-                )
-            asp = asp(composition, singlepoint, calculation)
-            results.update( {"asp" : asp} )
-
-        if "phase_frac_and_apbe" in calcs:
-            database = "nidata7.tdb"
-            dependent_element = "fe"
-            calculation = (tcpython. 
-                        set_cache_folder(os.path.basename(__file__) + "_cache").
-                        select_user_database_and_elements(database, [dependent_element] + elements).
-                        without_default_phases().
-                        select_phase("FCC_A1").
-                        select_phase("gamma_prime").
-                        get_system().
-                        with_single_equilibrium_calculation().
-                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
-                        set_gibbs_energy_addition_for('gamma_prime', -1456)
-                        )
-            [gamma_prime_mole_fraction, apbe] = phase_frac_and_apbe(composition, calculation)
-            results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
-                        
-        if "strength_and_df" in calcs:
-            # create and configure a single equilibrium calculation
-            tcpython.set_ges_version(5)
-            dG_calculation = (tcpython
-                        .set_cache_folder(os.path.basename(__file__) + "_cache")
-                        .select_user_database_and_elements(database, [dependent_element] + elements)
-                        .without_default_phases()
-                        .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
-                        .get_system()
-                        .with_single_equilibrium_calculation()
-                        .set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"])
-                        .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
-                        .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
-                        )
-            strength_calculation = (tcpython.
-                        set_cache_folder(os.path.basename(__file__) + "_cache").
-                        select_user_database_and_elements(database, [dependent_element] + elements).
-                        without_default_phases().
-                        select_phase("FCC_A1").
-                        select_phase("GAMMA_PRIME").
-                        get_system().
-                        with_single_equilibrium_calculation().
-                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]).
-                        set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
-                        ) 
-            [dg_diff, strength] = strength_and_df(composition, temperature["aging_temp"], dG_calculation, strength_calculation)                   
-            results.update( {"dg_diff" : dg_diff, "strength" : strength} )
+        for label in scheil_curve:
+            section = scheil_curve[label]
+            temp_min = min(np.min(section.y), temp_min)
+            temp_max = max(np.max(section.y), temp_max)
+            ax_1.plot(section.x, np.array(section.y) - 273.15, label=label)
+            
     
-    if len(results) == 0:
-        print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"asp\", \"phase_frac_and_apbe\", \"strength_and_df\"")
+        # calculate the equilibrium solidification line (starting at the liquidus temperature)
+        prop_calculation = system.with_property_diagram_calculation()
+        prop = (prop_calculation.
+                  with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
+                            set_min(temp_min).
+                            set_max(temp_max)))
+        for element in composition:
+            prop = prop.set_condition("w("+element+")", composition[element])
     
-    return results 
+        result = prop.calculate()
+    
+        temp_eq_frac, liquid_eq_frac = result.get_values_of(ThermodynamicQuantity.temperature(),
+                                                            ThermodynamicQuantity.mole_fraction_of_a_phase("LIQUID"))
+        solid_eq_frac = 1 - np.array(liquid_eq_frac)
+        temp_eq_frac = np.array(temp_eq_frac) - 273.15
+        valid_indices = np.where(solid_eq_frac < 1.0)  # cutting off all values with 100% solid
+
+        title_font = 25
+        subtitle_font = 18 
+        ax_font = 25
+        tick_font = 17
+        ax_1.tick_params(axis='x',labelsize=tick_font)
+        ax_1.tick_params(axis='y',labelsize=tick_font)
+        ax_1.plot(solid_eq_frac[valid_indices], temp_eq_frac[valid_indices], '--', label="Equilibrium")
+        ax_1.set_xlabel("Mole fraction of all solid phases [-]", fontsize= ax_font)
+        ax_1.set_ylabel("Temperature [\N{DEGREE SIGN} C]", fontsize= ax_font)
+    
+        ax_1.legend(loc="lower left",fontsize=tick_font) # , prop={'size': 6}) #, bbox_to_anchor=(1,1))
+        fig.suptitle("Scheil Calculation", y=0.945, fontsize=title_font)
+        ax_1.set_title(plotName, fontsize=subtitle_font)
+    
+        # 2. Plot the mole fraction of the solid phases separated for each
+        """
+        groups = \
+            solidification.get_values_grouped_by_stable_phases_of(ScheilQuantity.mole_fraction_of_all_solid_phases(),
+                                                                  ScheilQuantity.mole_fraction_of_a_solid_phase(ALL_PHASES))
+    
+        for group in groups.values():
+            ax_2.plot(group.x,np.array(group.y),label=group.label)
+    
+        ax_2.set_xlabel("Mole fraction of all solid phases [-]")
+        ax_2.set_ylabel("Mole fraction of each solid phase [-]")
+        ax_2.legend(loc="upper left", bbox_to_anchor=(1,1))
+        """
+        
+        plt.show()
+        sys.exit()
+       
+
+    if "NEED PHASE NAME" in label:
+        oxides_frac0 = solidification.get_values_of(
+            ScheilQuantity.mole_fraction_of_all_solid_phases(),
+            ScheilQuantity.mole_fraction_of_a_solid_phase("C14_LAVES"))
+        oxides_frac = oxides_frac0[1][-1]
+    else:
+        oxides_frac = 0
+        return 0
+    
+    d = 72e-9 # 72 nm
+    f = oxides_frac 
+    Z = 1.6 # [1.6-1.8]
+    avg_diameter = oxides_grains(d, f, Z)
+    return avg_diameter
+
 
 # TCPython Initializer and Caller for Matrix
-def matrix_TC_caller(calcs, compositions_matrix, temperature):
+def TC_caller(calcs, compositions, temperature, disp=False):
     """
     Parameters
     ----------
     calcs : List
         Ex: ["printability", "stable_del_ferrite"]
         
-    compositions_matrix : 2D array of Dicts
+    compositions : 2D array of Dicts
         Ex: c_1217 = {
                        "C": 0.03/100,
                        "Cr": 12/100,
@@ -847,7 +794,11 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
         strength : Strength of alloy
    
     """
-    elements = list(compositions_matrix[0][0].keys())
+    matrix = False
+    if len(np.shape(compositions)):
+        matrix = True 
+
+    elements = list(compositions[0][0].keys())
     results = {}
     if len(calcs) == 0:
         return results
@@ -864,14 +815,38 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
             scheil_calculation = (system.with_scheil_calculation().
                                 set_composition_unit(CompositionUnit.MASS_FRACTION))
 
-            calc_matr = [[printability(compositions_matrix[x][y], scheil_calculation, system) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
-        
-            fr_matr = [[calc_matr[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            csc_matr = [[calc_matr[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            bcc_matr = [[calc_matr[i][j][2] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            laves_matr = [[calc_matr[i][j][3] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+            if matrix:
+                calc_matr = [[printability(compositions[x][y], scheil_calculation, system) for y in range(len(compositions[0]))] for x in range(len(compositions))]
+            
+                fr_matr = [[calc_matr[i][j][0] for i in range(len(compositions))] for j in range(len(compositions[0]))]
+                csc_matr = [[calc_matr[i][j][1] for i in range(len(compositions))] for j in range(len(compositions[0]))]
+                bcc_matr = [[calc_matr[i][j][2] for i in range(len(compositions))] for j in range(len(compositions[0]))]
+                laves_matr = [[calc_matr[i][j][3] for i in range(len(compositions))] for j in range(len(compositions[0]))]
 
-            results.update( {'fr' : fr_matr, "csc" : csc_matr, "BCC_frac" : bcc_matr, "laves_frac" : laves_matr} )
+                results.update( {'fr' : fr_matr, "csc" : csc_matr, "BCC_frac" : bcc_matr, "laves_frac" : laves_matr} )
+
+            else: 
+                [fr, csc, BCC_frac, laves_frac] = printability(compositions, scheil_calculation, system, disp=disp)
+                results.update( {'fr' : fr, "csc" : csc, "BCC_frac" : BCC_frac, "laves_frac" : laves_frac} )
+                        
+
+        if "oxides" in calcs: 
+            # system definer info
+            database = "TCFE10"
+            dependent_element = "Fe"
+            system = (tcpython.
+                    set_cache_folder(os.path.basename(__file__) + "_cache").
+                    select_database_and_elements(database, [dependent_element] + elements).
+                    get_system_for_scheil_calculations())
+        
+            scheil_calculation = (system.with_scheil_calculation().
+                                set_composition_unit(CompositionUnit.MASS_FRACTION))
+
+            if matrix: 
+                calc_matr = [[oxides(compositions[x][y], scheil_calculation, system) for y in range(len(compositions[0]))] for x in range(len(compositions))]
+                results.update( {'oxides' : calc_matr} )
+            else: 
+                calc = oxides(compositions, scheil_calculation, system, disp=disp)
         
         if "stable_del_ferrite" in calcs: 
             # system definer info
@@ -882,9 +857,13 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                     .select_database_and_elements(database, [dependent_element] + elements)
                     .get_system()
                     .with_single_equilibrium_calculation())
-                
-            del_ferrite_matr = [[stable_del_ferrite(compositions_matrix[x][y], temperature["solution_temp"], system) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
-            results.update( {'del_ferrite' : del_ferrite_matr} )
+            
+            if matrix: 
+                del_ferrite_matr = [[stable_del_ferrite(compositions[x][y], temperature["solution_temp"], system) for y in range(len(compositions[0]))] for x in range(len(compositions))]
+                results.update( {'del_ferrite' : del_ferrite_matr} )
+            else: 
+                del_ferrite = stable_del_ferrite(compositions, temperature["solution_temp"], system)
+                results.update( {'del_ferrite' : del_ferrite} )
 
         if "asp" in calcs:
             singlepoint = (tcpython.
@@ -911,8 +890,13 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                 disable_global_minimization().
                 enable_step_separate_phases()
                 )
-            asp_matr = [[asp(compositions_matrix[x][y], singlepoint, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
-            results.update( {"asp" : asp_matr} )
+            
+            if matrix:
+                asp_matr = [[asp(compositions[x][y], singlepoint, calculation) for y in range(len(compositions[0]))] for x in range(len(compositions))]
+                results.update( {"asp" : asp_matr} )
+            else: 
+                asp = asp(compositions, singlepoint, calculation)
+                results.update( {"asp" : asp} )                
 
         if "phase_frac_and_apbe" in calcs:
             database = "nidata7.tdb"
@@ -929,13 +913,18 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
 
-            res = [[phase_frac_and_apbe(compositions_matrix, calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]
+            if matrix:
+                res = [[phase_frac_and_apbe(compositions, calculation) for y in range(len(compositions[0]))] for x in range(len(compositions))]
 
-            gamma_prime_mole_fraction =     [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            apbe    =                       [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+                gamma_prime_mole_fraction =     [[res[i][j][0] for i in range(len(compositions))] for j in range(len(compositions[0]))]
+                apbe    =                       [[res[i][j][1] for i in range(len(compositions))] for j in range(len(compositions[0]))]
 
-            results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
-                        
+                results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
+            else: 
+                [gamma_prime_mole_fraction, apbe] = phase_frac_and_apbe(compositions, calculation)
+                results.update( {"gamma_prime_mole_fraction" : gamma_prime_mole_fraction, "apbe" : apbe} )
+                
+
         if "strength_and_df" in calcs:
             # create and configure a single equilibrium calculation
             tcpython.set_ges_version(5)
@@ -962,14 +951,19 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         ) 
 
-            res = [[strength_and_df(compositions_matrix, temperature["aging_temp"], dG_calculation, strength_calculation) for y in range(len(compositions_matrix[0]))] for x in range(len(compositions_matrix))]                   
+            if matrix:
+                res = [[strength_and_df(compositions, temperature["aging_temp"], dG_calculation, strength_calculation) for y in range(len(compositions[0]))] for x in range(len(compositions))]                   
 
-            dg_diff =  [[res[i][j][0] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
-            strength = [[res[i][j][1] for i in range(len(compositions_matrix))] for j in range(len(compositions_matrix[0]))]
+                dg_diff =  [[res[i][j][0] for i in range(len(compositions))] for j in range(len(compositions[0]))]
+                strength = [[res[i][j][1] for i in range(len(compositions))] for j in range(len(compositions[0]))]
 
-            results.update( {"dg_diff" : dg_diff, "strength" : strength} )
-    
+                results.update( {"dg_diff" : dg_diff, "strength" : strength} )
+            else:
+                [dg_diff, strength] = strength_and_df(compositions, temperature["aging_temp"], dG_calculation, strength_calculation)                   
+                results.update( {"dg_diff" : dg_diff, "strength" : strength} )
+
     if len(results) == 0:
         print("calcs must be a list containing at least one of these: \"printability\", \"stable_del_fettire\", \"asp\", \"phase_frac_and_apbe\", \"strength_and_df\"")
     
     return results 
+

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np 
 from composition_lib import compositions_matrix
-from TC_lib import matrix_TC_caller, single_TC_caller
+from TC_lib import TC_caller
 from prettytable import PrettyTable
 import sys
 
@@ -35,7 +35,7 @@ def file_name(composition0, element1={}, element2={}):
     return title
 
 # Generate Data and Save
-def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overwrite=False):
+def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overwrite=False, disp=False):
     """
     This is the big caller for this script
     Takes the variables defined in run.py and determines if single or matrix calcs
@@ -98,10 +98,10 @@ def gen_and_save(composition0, testss, element1={}, element2={}, temps={}, overw
 
     # check if a singlepoint by seeing if we are testing ranges of elements
     if len(element1) == 0:
-        data = single_TC_caller(tests, composition0, temps)
+        data = TC_caller(tests, composition0, temps, disp=disp)
     else:
         comp_matr = compositions_matrix(composition0, element1, element2)
-        data = matrix_TC_caller(tests, comp_matr, temps)
+        data = TC_caller(tests, comp_matr, temps)
 
     # pull all data out of generated data and put into the save file with nice dict keys!
     if "printability" in tests:
@@ -321,14 +321,17 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     fig.show() 
 
 # Runner 
-def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, overwrite=False):
+def run(composition0, tests, element1={}, element2={}, temps={}, manual=False, overwrite=False, disp=False):
     """
     To be called in run.py
     Takes parameters defined in run.py
     Runs the tests you want!
+
+    disp is for single point scheil calculations if you want to see a Scheil Curve
+        it is disabled for matrix viewing as you will have way too many sheil curves
     """
     # make sure data is generated & saved
-    gen_and_save(composition0, tests, element1=element1, element2=element2, temps=temps, overwrite=overwrite) 
+    gen_and_save(composition0, tests, element1=element1, element2=element2, temps=temps, overwrite=overwrite, disp=disp) 
 
     # if single point, print out a nice table and save the nice table
     if len(element1) == 0:
