@@ -235,7 +235,7 @@ def stable_del_ferrite(composition, solution_temp, calculation):
         !!! Value must be in Kelvin !!!
         
     calculation : TCPython session for single equilibrium calculation
-        TCPython()..set_cache_folder(os.path.basename(__file__) + "_cache")
+        TCPython().set_cache_folder(os.path.basename(__file__) + "_cache")
               .select_database_and_elements(database, [dependent_element] + elements)
               .get_system()
               .with_single_equilibrium_calculation()
@@ -264,7 +264,55 @@ def stable_del_ferrite(composition, solution_temp, calculation):
 
 # Calculate the Austenite Stability Parameter
 def asp(composition, singlepoint, calculation):
+    """
+    Parameters
+    ----------
+    composition : Dict
+        Ex: c_1217 = {
+                       "C": 0.03/100,
+                       "Cr": 12/100,
+                       "Ni": 17/100,
+                       "Mo": 1.3/100,
+                       "Ti": 3.0/100,
+                       "V": 0.3/100,
+                       "Al": 0.2/100
+                       #"B": 0.01/100
+                       #"O": 0.015/100
+                       }  # in wt-fraction #
+        
+    singlepoint : TCPython session for a single point calculation
+        tcpython.
+            set_cache_folder(os.path.basename(__file__) + "_cache").
+            select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
+            without_default_phases().
+            select_phase("FCC_A1").
+            select_phase("gamma_prime").
+            get_system().
+            with_single_equilibrium_calculation().
+            set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
+            set_gibbs_energy_addition_for('gamma_prime', -1456)
+        
+        
+    calculation : TCPython session for single equilibrium calculation
+        tcpython.
+            set_cache_folder(os.path.basename(__file__) + "_cache").
+            select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
+            without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
+            get_system().
+            with_property_diagram_calculation().
+            with_axis(CalculationAxis(ThermodynamicQuantity.temperature()).
+                        set_min(temperature["start_temp"]).
+                        set_max(temperature["end_temp"]).
+                        with_axis_type(Linear().set_max_step_size(1))).
+            disable_global_minimization().
+            enable_step_separate_phases()
+            
 
+    Returns
+    -------
+    asp : [Float]
+        Austenite Stability Parameter
+    """
     matrixComposition = composition 
     # matrixComposition = copy.deepcopy(composition)
     # gammaPrimeComposition = copy.deepcopy(composition)
@@ -413,7 +461,46 @@ def asp(composition, singlepoint, calculation):
 
 # Calculate Phase frac + APBE
 def phase_frac_and_apbe(composition, calculation):
+    """
+    Parameters
+    ----------
+    composition : Dict
+        Ex: c_1217 = {
+                       "C": 0.03/100,
+                       "Cr": 12/100,
+                       "Ni": 17/100,
+                       "Mo": 1.3/100,
+                       "Ti": 3.0/100,
+                       "V": 0.3/100,
+                       "Al": 0.2/100
+                       #"B": 0.01/100
+                       #"O": 0.015/100
+                       }  # in wt-fraction #
+        
+        
+        
+    calculation : TCPython session for single equilibrium calculation
+        tcpython. 
+            set_cache_folder(os.path.basename(__file__) + "_cache").
+            select_user_database_and_elements(database, [dependent_element] + elements).
+            without_default_phases().
+            select_phase("FCC_A1").
+            select_phase("gamma_prime").
+            get_system().
+            with_single_equilibrium_calculation().
+            set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
+            set_gibbs_energy_addition_for('gamma_prime', -1456)
+                        
+            
+    Returns
+    -------
+    gamma_prime_mole_fraction : [Float]
+        Gamma Prime in the matrix post aging
+    apbe : [Float]
+        Anti-Phase-Boundary-Energy
+    """
 
+    # these values were in the original script but I found no use for them?
     # RT = 8.314*aging_temp 
     # matrixComposition = copy.deepcopy(composition)
     # gammaPrimeComposition = copy.deepcopy(composition)
@@ -441,6 +528,56 @@ def phase_frac_and_apbe(composition, calculation):
 
 # Calculate Strength and Driving Force
 def strength_and_df(composition, temperature, dG_calculation, strength_calculation):
+    """
+    Parameters
+    ----------
+    composition : Dict
+        Ex: c_1217 = {
+                       "C": 0.03/100,
+                       "Cr": 12/100,
+                       "Ni": 17/100,
+                       "Mo": 1.3/100,
+                       "Ti": 3.0/100,
+                       "V": 0.3/100,
+                       "Al": 0.2/100
+                       #"B": 0.01/100
+                       #"O": 0.015/100
+                       }  # in wt-fraction #
+        
+    temperature (aging temp) : [Float]
+        Aging Temperature
+        !!! Value must be in Kelvin !!!
+        
+    dG_calculation : TCPython session for single equilibrium calculation
+        tcpython
+            .set_cache_folder(os.path.basename(__file__) + "_cache")
+            .select_user_database_and_elements(database, [dependent_element] + elements)
+            .without_default_phases()
+            .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
+            .get_system()
+            .with_single_equilibrium_calculation()
+            .set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"])
+            .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
+            .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        
+    strength_calculation
+        tcpython.
+            set_cache_folder(os.path.basename(__file__) + "_cache").
+            select_user_database_and_elements(database, [dependent_element] + elements).
+            without_default_phases().
+            select_phase("FCC_A1").
+            select_phase("GAMMA_PRIME").
+            get_system().
+            with_single_equilibrium_calculation().
+            set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]).
+            set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
+                        
+
+    Returns
+    -------
+    del_ferrite : [Float]
+        Amount of delta ferrite in matrix post solution treatment
+    """
 
     RT = 8.314*temperature
 
@@ -589,7 +726,7 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                 select_phase("gamma_prime").
                 get_system().
                 with_single_equilibrium_calculation().
-                set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
                 set_gibbs_energy_addition_for('gamma_prime', -1456)
                 )
             calculation = (tcpython.
@@ -619,7 +756,7 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         select_phase("gamma_prime").
                         get_system().
                         with_single_equilibrium_calculation().
-                        set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
             [gamma_prime_mole_fraction, apbe] = phase_frac_and_apbe(composition, calculation)
@@ -635,7 +772,7 @@ def single_TC_caller(calcs, composition, temperature, disp=False):
                         .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
                         .get_system()
                         .with_single_equilibrium_calculation()
-                        .set_condition(ThermodynamicQuantity.temperature(), temperature)
+                        .set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"])
                         .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
                         .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         )
@@ -758,7 +895,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                 select_phase("gamma_prime").
                 get_system().
                 with_single_equilibrium_calculation().
-                set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
                 set_gibbs_energy_addition_for('gamma_prime', -1456)
                 )
             calculation = (tcpython.
@@ -788,7 +925,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         select_phase("gamma_prime").
                         get_system().
                         with_single_equilibrium_calculation().
-                        set_condition(ThermodynamicQuantity.temperature(), 973.15).
+                        set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"]). #AGING TEMP UNCERTAIN
                         set_gibbs_energy_addition_for('gamma_prime', -1456)
                         )
 
@@ -809,7 +946,7 @@ def matrix_TC_caller(calcs, compositions_matrix, temperature):
                         .select_phase('FCC_A1').select_phase('GAMMA_PRIME').select_phase('ETA')
                         .get_system()
                         .with_single_equilibrium_calculation()
-                        .set_condition(ThermodynamicQuantity.temperature(), temperature)
+                        .set_condition(ThermodynamicQuantity.temperature(), temperature["aging_temp"])
                         .set_phase_to_dormant('GAMMA_PRIME').set_phase_to_dormant('ETA')
                         .set_gibbs_energy_addition_for('GAMMA_PRIME', -1456)
                         )

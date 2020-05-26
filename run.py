@@ -1,5 +1,8 @@
 from plotting_lib import run 
 
+
+# Fe is dependent element
+# The values are wt. fraction of each element
 composition = {
     "C": 0.0003,
     "Cr": .13,
@@ -12,6 +15,8 @@ composition = {
     #"O": 0.015/100
 } 
 
+# define the two elements that define the range of values that are being varied
+# wt fraction values
 el1 = {
     "name" : "Cr",
     "start" : 13/100,
@@ -26,11 +31,13 @@ el2 = {
     "length" : 2
 }
 
-
 # in K
+# just make sure that these are defined (but it's ok if your tests don't need explicitly need these)
 temps = {
     "solution_temp" : 1000 + 273.15,
-    "aging_temp" : 973.15
+    "aging_temp" : 973.15,
+    "start_temp" : 173.15,
+    "end_temp" : 473.15
 }
 
 """
