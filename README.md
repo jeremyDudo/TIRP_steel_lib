@@ -12,7 +12,11 @@ This repo is a compilation of refined scripts that I have helped write in order 
 
 ## Dependencies:
 tc_python
+
 prettytable
+
 matplotlib
+
 numpy
+
 pandas
