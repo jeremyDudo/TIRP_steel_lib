@@ -6,6 +6,12 @@ To do this, we primarily rely on a TCPython (ThermoCalc for Python) module to fa
 
 This repo is a compilation of refined scripts that I have helped write in order for painless yet transparent code to be written and read, to allow the science to be focused on instead of coding.
 
+## For experiments:
+run.py 
+
+## Nitty-Gritty Python:
+every other .py file
+
 ## Note: This is written on and for my Macbook, so filenames and foldering might need tweaks 
 
 ## Two databases are currently not included b/c copyright fears, so the only tests that can be run are the printability and stable_del_ferrite
