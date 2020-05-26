@@ -9,6 +9,8 @@ This repo is a compilation of refined scripts that I have helped write in order 
 ## For experiments:
 run.py 
 
+As examples of output from the code, check results/eitherFile/single_point.txt or results/eitherFile/Plots/anyFile
+
 ## Nitty-Gritty Python:
 every other .py file
 
