@@ -638,7 +638,6 @@ def strength_and_df(composition, temperature, dG_calculation, strength_calculati
     return [dg_diff, strength]
 
 # Calculate average diameter of grain boundaries based on oxides
-
 def oxides(composition, scheil_calculation, system, disp=False):
     for element in composition:
         scheil_calculation = scheil_calculation.set_composition(element, composition[element])
@@ -725,15 +724,19 @@ def oxides(composition, scheil_calculation, system, disp=False):
         plt.show()
         sys.exit()
        
+    oxide_present = False
+    for label in scheil_curve:        
+        if "NEED PHASE NAME" in label:
+            oxide_present = True
 
-    if "NEED PHASE NAME" in label:
+    if oxide_present:
         oxides_frac0 = solidification.get_values_of(
             ScheilQuantity.mole_fraction_of_all_solid_phases(),
-            ScheilQuantity.mole_fraction_of_a_solid_phase("C14_LAVES"))
-        oxides_frac = oxides_frac0[1][-1]
+            ScheilQuantity.mole_fraction_of_a_solid_phase("NEED PHASE NAME"))
+        oxides_frac = oxides_frac0[1][-1] 
     else:
         oxides_frac = 0
-        return 0
+        return 1
     
     d = 72e-9 # 72 nm
     f = oxides_frac 
@@ -743,7 +746,7 @@ def oxides(composition, scheil_calculation, system, disp=False):
 
 
 # TCPython Initializer and Caller for Matrix
-def TC_caller(calcs, compositions, temperature, disp=False):
+def TC_caller(calcs, compositions, dependent_element, temperature, disp=False):
     """
     Parameters
     ----------
@@ -797,8 +800,10 @@ def TC_caller(calcs, compositions, temperature, disp=False):
     matrix = False
     if len(np.shape(compositions)):
         matrix = True 
-
-    elements = list(compositions[0][0].keys())
+    if matrix: 
+        elements = list(compositions[0][0].keys())
+    else:
+        elements = list(compositions.keys())
     results = {}
     if len(calcs) == 0:
         return results
@@ -806,7 +811,7 @@ def TC_caller(calcs, compositions, temperature, disp=False):
         if "printability" in calcs: 
             # system definer info
             database = "TCFE10"
-            dependent_element = "Fe"
+            
             system = (tcpython.
                     set_cache_folder(os.path.basename(__file__) + "_cache").
                     select_database_and_elements(database, [dependent_element] + elements).
@@ -833,7 +838,7 @@ def TC_caller(calcs, compositions, temperature, disp=False):
         if "oxides" in calcs: 
             # system definer info
             database = "TCFE10"
-            dependent_element = "Fe"
+            
             system = (tcpython.
                     set_cache_folder(os.path.basename(__file__) + "_cache").
                     select_database_and_elements(database, [dependent_element] + elements).
@@ -847,11 +852,12 @@ def TC_caller(calcs, compositions, temperature, disp=False):
                 results.update( {'oxides' : calc_matr} )
             else: 
                 calc = oxides(compositions, scheil_calculation, system, disp=disp)
-        
+                results.update( {'oxides' : calc} )
+
         if "stable_del_ferrite" in calcs: 
             # system definer info
             database = "TCFE10"
-            dependent_element = "Fe"
+            
             system = (tcpython
                     .set_cache_folder(os.path.basename(__file__) + "_cache")
                     .select_database_and_elements(database, [dependent_element] + elements)
@@ -868,7 +874,7 @@ def TC_caller(calcs, compositions, temperature, disp=False):
         if "asp" in calcs:
             singlepoint = (tcpython.
                 set_cache_folder(os.path.basename(__file__) + "_cache").
-                select_user_database_and_elements("nidata7.tdb", ["Fe"] + elements).
+                select_user_database_and_elements("nidata7.tdb", [dependent_element] + elements).
                 without_default_phases().
                 select_phase("FCC_A1").
                 select_phase("gamma_prime").
@@ -879,7 +885,7 @@ def TC_caller(calcs, compositions, temperature, disp=False):
                 )
             calculation = (tcpython.
                 set_cache_folder(os.path.basename(__file__) + "_cache").
-                select_user_database_and_elements("MART5.TDB", ["Fe"] + elements).
+                select_user_database_and_elements("MART5.TDB", [dependent_element] + elements).
                 without_default_phases().select_phase("FCC_A1").select_phase("BCC_A2").
                 get_system().
                 with_property_diagram_calculation().
@@ -900,7 +906,7 @@ def TC_caller(calcs, compositions, temperature, disp=False):
 
         if "phase_frac_and_apbe" in calcs:
             database = "nidata7.tdb"
-            dependent_element = "fe"
+            
             calculation = (tcpython. 
                         set_cache_folder(os.path.basename(__file__) + "_cache").
                         select_user_database_and_elements(database, [dependent_element] + elements).
