@@ -62,6 +62,14 @@ I didn't include them in the github repo bc I am very unclear on the copyright o
 """
 tests = ["oxides", "stable_del_ferrite", "meta_del_ferrite", "hcs", ]
 
+target_values = {
+    "oxides" : 2.75e-5,
+    "stable_del_ferrite" : 0,
+    "meta_del_ferrite" : 0.2,
+    "hcs" : 4
+}
+
+
 # If you need to overwrite exisiting data
 overwrite = False 
 
@@ -76,7 +84,7 @@ disp = False
 
 # run your test(s, comment out as needed)!
 # for a matrix of compositions:
-run(composition, tests, dependent_element, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite)
+run(composition, tests, dependent_element, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite, targets=target_values)
 
 # for a single point:
 # run(composition, tests, dependent_element, temps=temps, manual=manual, overwrite=overwrite, disp=disp)

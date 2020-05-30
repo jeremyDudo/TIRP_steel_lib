@@ -201,7 +201,7 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
     return data
 
 # Plotter
-def plotter(composition0, tests, element1, element2, temps, manual=False):
+def plotter(composition0, tests, element1, element2, temps, targets={}, manual=False):
     """
     Calls our data generator/loader
     Unpacks all of our data
@@ -322,14 +322,27 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     def contoured_target(test, value):
         """
         Conotour at a single point with a specified target value
-        ADD
         """
-        pass
+        # legible font
+        contour_font = 20
+
+        # hcs is not a listed calc, but is a function of two listed calcs, check for it (this is definitely slow and should likely be fixed in the TC_lib)
+        if test == "hcs":
+            Z = hcs(data['fr'], data['csc'])
+        else:
+            Z = data[test]
+        
+        # actually generate and plot the contour
+        contour = ax.contour(X, Y, Z, colors=color_dict[test], levels=[value], linestyles='solid')
+        fmt = fmt_dict[test]
+        ax.clabel(contour, inline=True, fontsize=contour_font, fmt=fmt, manual=manual)
 
     # plot all of the contours
     for test in tests:
         contoured(test)
 
+    for target in targets:
+        contoured_target(target, targets[target])
     # Format the rest of the plot
 
     # legible font sizes for a ppt
@@ -354,7 +367,7 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
     fig.show() 
 
 # Runner 
-def run(composition0, tests, dependent_element, element1={}, element2={}, temps={}, manual=False, overwrite=False, disp=False):
+def run(composition0, tests, dependent_element, element1={}, element2={}, temps={}, manual=False, overwrite=False, disp=False, targets={}):
     """
     ADD MORE
     To be called in run.py
@@ -425,6 +438,6 @@ def run(composition0, tests, dependent_element, element1={}, element2={}, temps=
         return None
     
     # else plot the stuff
-    plotter(composition0, tests, element1, element2, temps, manual=manual)
+    plotter(composition0, tests, element1, element2, temps, targets=targets, manual=manual)
     return None
  
