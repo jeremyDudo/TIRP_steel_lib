@@ -66,7 +66,7 @@ def gen_and_save(composition0, testss, dependent_element, element1={}, element2=
         "strength_and_df" : filename+"_strength_and_df",
         "oxides" : filename+"_oxides"
     }
-    
+
     tests = [test for test in testss]
 
     # all of these tests are generated in the printability call in the TC_calc conditional matching "printability"
@@ -122,7 +122,7 @@ def gen_and_save(composition0, testss, dependent_element, element1={}, element2=
     if "stable_del_ferrite" in tests:
         del_ferrite = data["del_ferrite"]
         save_mat_del_ferrite = np.asarray(del_ferrite)
-        np.savez_compressed(filename_dict["del_ferrite"], stable_del_ferrite=save_mat_del_ferrite) 
+        np.savez_compressed(filename_dict["stable_del_ferrite"], stable_del_ferrite=save_mat_del_ferrite) 
 
     if "asp" in tests:
         asp = data["asp"]
@@ -140,13 +140,12 @@ def gen_and_save(composition0, testss, dependent_element, element1={}, element2=
         save_mat_dg_diff = np.asarray(dg_diff)
         save_mat_strength = np.asarray(strength)
         np.savez_compressed(filename_dict["strength_and_df"], dg_diff=save_mat_dg_diff, strength=save_mat_strength)
-    print(data)
+
     if "oxides" in tests:
-        print(tests)
-        sys.exit()
         oxides = data["oxides"]
         save_mat_oxides = np.asarray(oxides)
-        np.savez_compressed(filename_dict[oxides], oxides=save_mat_oxides)
+        np.savez_compressed(filename_dict["oxides"], oxides=save_mat_oxides)
+
 
 # Load to use 
 def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
@@ -165,35 +164,35 @@ def load_and_use(composition0, tests, element1={}, element2={}, temps={}):
 
     # for each test, give filename a different extension for differentiability
     filename_dict = {
-        "printability" : filename + "_printability",
-        "stable_del_ferrite" : filename + "_del_ferrite",
-        "asp" : filename + "_asp",
-        "phase_frac_and_apbe" : filename + "_phase_frac_and_apbe",
-        "strength_and_df" : filename+"_strength_and_df",
-        "oxides" : filename+"_oxides"
+        "printability" : filename + "_printability.npz",
+        "stable_del_ferrite" : filename + "_del_ferrite.npz",
+        "asp" : filename + "_asp.npz",
+        "phase_frac_and_apbe" : filename + "_phase_frac_and_apbe.npz",
+        "strength_and_df" : filename+"_strength_and_df.npz",
+        "oxides" : filename+"_oxides.npz"
     }
     # commented out lines show what handles & info is being pushed into the data dict
     # Please do not remove, I think it is helpful to see what is being moved where
     data = {} 
 
     if "printability" in tests or "hcs" in tests or "fr" in tests or "csc" in tests or "meta_del_ferrite" in tests or "laves" in tests:
-        res = np.load(filename_dict["printability.npz"])
+        res = np.load(filename_dict["printability"])
         # fr, csc, bcc, laves = res["fr"], res["csc"], res["bcc"], res["laves"]
         data.update( dict(res) )# {"fr": fr, "csc": csc, "bcc":bcc, "laves":laves})
     if "stable_del_ferrite" in tests:
-        res = np.load(filename_dict["del_ferrite.npz"])
+        res = np.load(filename_dict["stable_del_ferrite"])
         # del_ferrite = res["del_ferrite"]
         data.update( dict(res) )# {"del_ferrite":del_ferrite} )
     if "asp" in tests:
-        res = np.load(filename_dict["asp.npz"])
+        res = np.load(filename_dict["asp"])
         # asp = res["asp"]
         data.update( dict(res) )# {"asp" : asp} )
     if "phase_frac_and_apbe" in tests or "gamma_prime" in tests or "apbe" in tests:
-        res = np.load(filename_dict["phase_frac_and_apbe.npz"])
+        res = np.load(filename_dict["phase_frac_and_apbe"])
         # gamma_prime, apbe = res["gamma_prime"], res["apbe"]
         data.update( dict(res) )# {"gamma_prime" : gamma_prime, "apbe" : apbe} )
     if "strength_and_df" in tests or "dg_diff" in tests or "strength" in tests:
-        res = np.load(filename_dict["strength_and_df.npz"])
+        res = np.load(filename_dict["strength_and_df"])
         # dg_diff, strength = res["dg_diff"], res["strength"]
         data.update( dict(res) )# {"dg_diff": dg_diff, "strength" : strength} )
     if "oxides" in tests:
@@ -320,6 +319,13 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
         fmt = fmt_dict[test]
         ax.clabel(contour, inline=True, fontsize=contour_font, fmt=fmt, manual=manual)
 
+    def contoured_target(test, value):
+        """
+        Conotour at a single point with a specified target value
+        ADD
+        """
+        pass
+
     # plot all of the contours
     for test in tests:
         contoured(test)
@@ -350,6 +356,7 @@ def plotter(composition0, tests, element1, element2, temps, manual=False):
 # Runner 
 def run(composition0, tests, dependent_element, element1={}, element2={}, temps={}, manual=False, overwrite=False, disp=False):
     """
+    ADD MORE
     To be called in run.py
     Takes parameters defined in run.py
     Runs the tests you want!
@@ -390,11 +397,11 @@ def run(composition0, tests, dependent_element, element1={}, element2={}, temps=
             'gamma_prime' : 'Gamma\'',
             'apbe' : 'APBE',
             'dg_diff' : 'dG_diff',
-            'strength' : 'Strength' ,
+            'strength' : 'Strength',
             'oxides' : 'Average Grain Diameter'
         }
-        field_names = [data_dict[name] for name in field_names]
-        table.field_names = field_names
+        field_names_pretty = [data_dict[name] for name in field_names]
+        table.field_names = field_names_pretty
 
         # row with the numerical data
         row = [data[key] for key in field_names] 

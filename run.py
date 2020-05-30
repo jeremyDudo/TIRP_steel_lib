@@ -60,7 +60,7 @@ Tests you can choose from:
 nidata7.tdb and mart5.tdb should be in the same folder as these files... 
 I didn't include them in the github repo bc I am very unclear on the copyright of the database files
 """
-tests = ["oxides"] # "stable_del_ferrite", "meta_del_ferrite", "hcs", ]
+tests = ["oxides", "stable_del_ferrite", "meta_del_ferrite", "hcs", ]
 
 # If you need to overwrite exisiting data
 overwrite = False 
@@ -70,11 +70,13 @@ overwrite = False
 manual = False
 
 # for single point scheil calcs disp the scheil curve
-disp = True 
+disp = False 
+
+
 
 # run your test(s, comment out as needed)!
 # for a matrix of compositions:
-# run(composition, tests, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite)
+run(composition, tests, dependent_element, element1=el1, element2=el2, temps=temps, manual=manual, overwrite=overwrite)
 
 # for a single point:
-run(composition, tests, dependent_element, temps=temps, manual=manual, overwrite=overwrite, disp=disp)
+# run(composition, tests, dependent_element, temps=temps, manual=manual, overwrite=overwrite, disp=disp)

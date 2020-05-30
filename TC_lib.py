@@ -726,13 +726,13 @@ def oxides(composition, scheil_calculation, system, disp=False):
        
     oxide_present = False
     for label in scheil_curve:        
-        if "NEED PHASE NAME" in label:
+        if "CORUNDUM" in label:
             oxide_present = True
 
     if oxide_present:
         oxides_frac0 = solidification.get_values_of(
             ScheilQuantity.mole_fraction_of_all_solid_phases(),
-            ScheilQuantity.mole_fraction_of_a_solid_phase("NEED PHASE NAME"))
+            ScheilQuantity.mole_fraction_of_a_solid_phase("CORUNDUM"))
         oxides_frac = oxides_frac0[1][-1] 
     else:
         oxides_frac = 0
@@ -743,6 +743,8 @@ def oxides(composition, scheil_calculation, system, disp=False):
     Z = 1.6 # [1.6-1.8]
     avg_diameter = oxides_grains(d, f, Z)
     return avg_diameter
+
+
 
 
 # TCPython Initializer and Caller for Matrix
